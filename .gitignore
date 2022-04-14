@@ -1,0 +1,20 @@
+# ignore all environment settings (IDE, jupyter, etc.)
+.idea/
+venv/
+.venv/
+.vscode/
+
+# ignore all analysis settings
+runs_copy/
+*.ipynb_checkpoints/
+
+# ignore outputs of experiments
+
+
+# ignore cache
+*__pycache__/
+*.cached
+*.lock
+
+# ignore large directories (however, these directories are essential and must be downloaded from elsewhere)
+resource/bleurt/
