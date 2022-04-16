@@ -5,11 +5,7 @@ venv/
 .vscode/
 
 # ignore all analysis settings
-runs_copy/
 *.ipynb_checkpoints/
-
-# ignore outputs of experiments
-
 
 # ignore cache
 *__pycache__/
