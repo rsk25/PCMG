@@ -1,8 +1,18 @@
 from typing import List, Dict, Union
 import re
 
-NUM_FORMAT = 'N_'
+from common.const.operand import NUM_FORMAT
 
+NUM_FORMAT = 'N_'
+NUMBERS_DEFAULT_FORMAT = {
+                "key": '',
+                "token": [],
+                "tokenRange": [],
+                "value": ''
+            }
+
+def to_pen_decimal(fraction_str: str) -> float:
+    pass
 
 class MathWordProblem:
     def __init__(self, oldText: str, oldFormula: List[str], oldAnswer: List[str]) -> None:
@@ -10,12 +20,7 @@ class MathWordProblem:
         self._id: str = None
         self.text: str = None
         self.equations: List[str] = None
-        self.numbers: Dict[str, Union[List[str], str]] = {
-            "key": '',
-            "token": [],
-            "tokenRange": [],
-            "value": ''
-        }
+        self.numbers: Dict[str, Union[List[str], str]] = []
         self.answers: List[Dict[str, Union[str,bool]]] = [{"_selected": True}]
         self.index: int = None
         self.dataset: str = None
@@ -65,33 +70,44 @@ class Math23kProblem(MathWordProblem):
         self.eqs_template = eqs_template
         self.is_set = False
 
-    def set_text(self):
+    def _math23k_to_pen_format(math23k_str: str) -> str:
+        pen_pattern1 = r'num(\d{2})'
+        pen_pattern2 = r'num(\d{1})'
+        math23k_str = re.sub(pen_pattern1, NUM_FORMAT+r'\1', math23k_str)
+        pen_str = re.sub(pen_pattern2, NUM_FORMAT+r'0\1', math23k_str)
+        return pen_str
+
+    def set_text(self) -> None:
         self.text = self.oldText
 
-    def set_answer(self):
+    def set_answer(self) -> None:
         self.answers[0].update({"x": int(self.oldAnswer[0])})
 
-    def set_numbers(self):
+    def set_numbers(self) -> None:
         # TODO: use mwp_template and eps_template
-        pass
-
-    def set_equations(self):
+        # key, token, tokenRange
+        pair_for_parsing = zip(self.oldText.split(), self.mwp_template.split())
+        p1 = r'^num(\d{1,2})$'
+        
+        for i, orig_text, labeled_text in enumerate(pair_for_parsing):
+            if re.match(p1, labeled_text):
+                self.numbers.append(NUMBERS_DEFAULT_FORMAT)
+                self.numbers[-1].update({'key': self._math23k_to_pen_format(labeled_text)})
+                self.numbers[-1].update({'token': [orig_text]})
+                self.numbers[-1].update({'tokenRange':[i]})
+                self.numbers[-1].update({'value': to_pen_decimal(orig_text)})
+        
+    def set_equations(self) -> None:
         eqs = self.eqs_template
-        new_eqs = []
-        for eq in eqs:
-            p1 = r'num(\d{2})'
-            p2 = r'num(\d{1})'
-            eq = re.sub(p1, NUM_FORMAT+r'\1', eq)
-            eq = re.sub(p2, NUM_FORMAT+r'0\1', eq)
-            new_eqs.append(eq)
+        new_eqs = [self._math23k_to_pen_format(eq) for eq in eqs]
         self.equations = new_eqs
 
-    def set_exclude(self):
+    def set_exclude(self) -> None:
         exclude_pattern = "="
         if exclude_pattern in self.text:
             self._exclude = True
 
-    def set_all(self):
+    def set_all(self) -> None:
         self.set_text()
         self.set_answer()
         self.set_numbers()
