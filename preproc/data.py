@@ -9,6 +9,7 @@ from sympy.core.numbers import Integer, Float
 
 from common.const.operand import NUM_PREFIX
 from common.pen.pattern import NUMBER_OR_FRACTION_PATTERN
+from sympy.solvers import ode
 
 
 NUMBERS_DEFAULT_FORMAT = {
@@ -92,10 +93,10 @@ class Math23kProblem(MathWordProblem):
 
 
     def _math23k_to_pen_format(self, math23k_str: str) -> str:
-        pen_pattern1 = r'num(\d{2})'
-        pen_pattern2 = r'num(\d{1})'
-        pen_str = re.sub(pen_pattern1, NUM_PREFIX+r'\1', math23k_str)
-        pen_str = re.sub(pen_pattern2, NUM_PREFIX+r'0\1', pen_str)
+        pattern1 = r'num(\d{2})'
+        pattern2 = r'num(\d{1})'
+        pen_str = re.sub(pattern1, NUM_PREFIX+r'\1', math23k_str)
+        pen_str = re.sub(pattern2, NUM_PREFIX+r'0\1', pen_str)
         return pen_str
 
     
@@ -108,13 +109,42 @@ class Math23kProblem(MathWordProblem):
 
 
     def set_equations(self) -> None:
-        eqs = self.eqs_template
-        new_eqs = [self._math23k_to_pen_format(eq) for eq in eqs]
+        assert self.numbers is not [], "Numbers need to be set!"
+        assert self.oldFormula is not None, "oldFormula needs to be set!"
+
+        # collect keys
+        key_stack = []
+        for number in self.numbers:
+            key_stack.append(number.get('key'))
+        assert len(key_stack) != 0
+
+        new_eqs = []
+        op_pattern = r"(\d+%{1}(?=[-*/+={}()%])|\d+%{1}$|[a-zA-Z-*/+={}()%+]|\d+(?!%))"
+        num_pattern = r'num\d{1,2}'
+        for old_formula, eq_temp in zip(self.oldFormula, self.eqs_template):
+            oldFormula_spaced = re.sub(op_pattern, r"\1 ", old_formula).rstrip()
+            oldFormula_split = oldFormula_spaced.split()
+            eqs_template_split = eq_temp.split()
+            assert len(oldFormula_split) == len(eqs_template_split)
+            
+            _eq = []
+            for orig_op, _op in zip(oldFormula_split, eqs_template_split):
+                if re.fullmatch(num_pattern, _op):
+                    new_op = self._math23k_to_pen_format(_op)
+                    if new_op in key_stack:
+                        _eq.append(new_op)
+                    else:
+                        _eq.append(orig_op)
+                else:
+                    _eq.append(orig_op)
+
+            new_eqs.append(' '.join(_eq))
+
         self.equations = new_eqs
 
 
     def set_numbers(self) -> None:
-        
+
         def _update_numbers(_number ,key_name: str, update_value: Union[List[Union[str, int]], str]):
             assert type(update_value) in [list, str, Integer, Float], f"update_value is {type(update_value)}"
             _number.update({key_name: update_value})
