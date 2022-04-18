@@ -1,3 +1,6 @@
+from os import _EnvironCodeFunc
+import json
+import pickle
 from typing import List, Dict, Union
 import re
 
@@ -160,3 +163,17 @@ class Math23kDataset(MathWordDataset):
     def __init__(self):
         super().__init__()
         pass
+
+    
+    def as_dict(self):
+        pass
+
+
+    def to_json(self, json_name: str) -> None:
+        with open(json_name, 'w+', encoding='utf-8') as json_writer:
+            json.dump(json_writer, self.as_dict(), ensure_ascii=False)
+
+
+    def to_pickle(self, pkl_name: str) -> None:
+        with open(pkl_name, 'wb+', encoding='utf-8') as pkl_writer:
+            pickle.dump(pkl_writer, self.as_dict())
