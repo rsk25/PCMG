@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, Dict
 import json
-from data import Math23kProblem
+from preproc.data import Math23kProblem
 
 if __name__ == '__main__':
     single_problem = Math23kProblem(
