@@ -71,14 +71,15 @@ class MathWordProblem:
 
 class MathWordDataset:
     def __init__(self):
-        self._id: str = None
+        self.start_id: int = None
+        self.start_index: int = None
 
 
-    def set_ids(self):
+    def set_start_ids(self):
         raise NotImplementedError()
 
 
-    def set_indices(self):
+    def set_start_indices(self):
         raise NotImplementedError()
 
 
