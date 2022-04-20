@@ -32,6 +32,7 @@ class MathWordProblem:
     def __init__(self, oldText: str, oldFormula: List[str], oldAnswer: List[str]) -> None:
         # Un-determined: use pre-determined data to determine
         self._id: str = None
+        self._represent: bool = False
         self.text: str = None
         self.equations: List[str] = None
         self.numbers: Dict[str, Union[List[str], str]] = []
@@ -70,7 +71,7 @@ class MathWordProblem:
 
 class MathWordDataset:
     def __init__(self):
-        pass
+        self._id: str = None
 
 
     def set_ids(self):
@@ -90,7 +91,6 @@ class Math23kProblem(MathWordProblem):
         self.mwp_template = mwp_template
         self.eqs_template = eqs_template
         self.is_set = False
-        self.has_fraction = False
 
 
     def _math23k_to_pen_format(self, math23k_str: str) -> str:
@@ -211,8 +211,8 @@ class Math23kProblem(MathWordProblem):
             self.set_all()
 
         return dict(
-            _exclude=self._exclude,
             _id=self._id,
+            _represent=self._represent
             answer=self.answers,
             dataset=self.dataset,
             equations=self.equations,
