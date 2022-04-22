@@ -29,12 +29,14 @@ WORD_NUMBERS = {
     'eight': 8,
     'nine': 9,
     'ten': 10,
-    'twelve': 12
+    'twelve': 12,
+    'hundred': 100,
+    'thousand': 1000,
 }
 
 def to_pen_decimal(number_str: str) -> float:
-    #number_str = re.sub(r"\((\d+/\d+)\)[.,?]?",r"\1", number_str)
-    number_str = re.sub(r"^\(|[.,?)\"]$","", number_str)
+    number_str = re.sub(r"\(|\)", "", number_str)
+    number_str = re.sub(r"^\(|[.,?);\"]$","", number_str)
     #assert NUMBER_OR_FRACTION_PATTERN.fullmatch(number_str), f"{number_str}"
     number_str = re.sub(',','',number_str)
     number_str = re.sub(r"(\d+(\.\d+)?)%", r"\1*100",number_str)
@@ -144,7 +146,6 @@ class Math23kProblem(MathWordProblem):
         assert self.oldFormula is not None, "oldFormula needs to be set!"
 
         # collect keys, tokens and values
-        is_corrupt = False
         key_stack = []
         key_token_range_value_stack = []
         for number in self.numbers:
