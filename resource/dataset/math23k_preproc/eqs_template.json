@@ -2130,7 +2130,7 @@
         "x = num1 - num2"
     ],
     [
-        "x = num1 * num2"
+        "x = num1 * ( num2 / num3 )"
     ],
     [
         "x = num1 * num2 / num3"
