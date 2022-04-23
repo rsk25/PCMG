@@ -32,14 +32,17 @@ WORD_NUMBERS = {
     'twelve': 12,
     'hundred': 100,
     'thousand': 1000,
+    'thirty': 30,
+    'forty': 40,
+    'twenty': 20
 }
 
 def to_pen_decimal(number_str: str) -> float:
-    number_str = re.sub(r"\(|\)", "", number_str)
-    number_str = re.sub(r"^\(|[.,?);\"]$","", number_str)
+    number_str = re.sub(r"\(|\)|°C|/min|/hour", "", number_str)
+    number_str = re.sub(r"^\(|[.,?);\"]$", "", number_str)
     #assert NUMBER_OR_FRACTION_PATTERN.fullmatch(number_str), f"{number_str}"
-    number_str = re.sub(',','',number_str)
-    number_str = re.sub(r"(\d+(\.\d+)?)%", r"\1*100",number_str)
+    number_str = re.sub(',', '', number_str)
+    number_str = re.sub(r"(\d+(\.\d+)?)%", r"\1*100", number_str)
     try:
         number = eval(number_str)
     except:
@@ -128,6 +131,7 @@ class Math23kProblem(MathWordProblem):
         _text = re.sub(r"\"", "", _text)
         _text = re.sub(r"(\d+)([a-zA-Z])", r"\1 \2", _text)
         _text = re.sub(r"(\w)-(\w)", r"\1 - \2", _text)
+        _text = re.sub(r"(\w):([\w\"\s])", r"\1 : \2", _text)
         _text = re.sub(r"(\w):([\w\"\s])", r"\1 : \2", _text)
         self.text = _text
 
@@ -232,12 +236,16 @@ class Math23kProblem(MathWordProblem):
                 
 
     def set_exclude(self) -> None:
-        exclude_text_pattern = r"[=*-+]|\([\s\d]*\)|[△○□]"
+        exclude_text_pattern = r"[=*-+]|\([\s\d]*\)|[△○□]|\.\.\."
         exclude_eq_pattern = r"[^=*-+/()\[\]{}.\w]"
+        exclude_non_mwp = r"[^a-zA-Z]"
         if re.search(exclude_text_pattern, self.text):
+            self._exclude = True
+        if re.fullmatch(exclude_non_mwp, self.text):
             self._exclude = True
         if re.search(exclude_eq_pattern, self.oldFormula[0]):
             self._exclude = True
+
 
 
     def set_all(self) -> None:
@@ -285,12 +293,7 @@ class Math23kDataset(MathWordDataset):
             problem._id = hex(self.start_id + self.number_of_problems)[2:]
             #problem.index = self.start_index + self.number_of_problems
             self.problems.append(problem.as_dict())
-
-
-    @property
-    def to_human_readable(self):
-        return self.problems
-
+            
 
     def to_json(self, json_name: str) -> None:
         with open(json_name, 'w+', encoding='utf-8') as json_writer:

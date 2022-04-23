@@ -30,8 +30,8 @@ if __name__ == '__main__':
         math23k_problem = Math23kProblem(**problem)
         math23k_dataset.append_to_dataset(math23k_problem)
 
-    save_dataset(math23k_dataset.to_human_readable(), 'math23k_only.json')
+    save_dataset(math23k_dataset.problems, 'math23k_only.json')
 
-    new_pen_dataset = concat_to_pen(math23k_dataset.to_human_readable())
+    new_pen_dataset = concat_to_pen(math23k_dataset.problems)
     save_dataset(new_pen_dataset, 'new_pen.json')
 
