@@ -30,6 +30,10 @@ WORD_NUMBERS = {
     'nine': 9,
     'ten': 10,
     'twelve': 12,
+    'thirteen': 13,
+    'sixteen': 16,
+    'nineteen': 19,
+    'fifty': 50,
     'hundred': 100,
     'thousand': 1000,
     'thirty': 30,
@@ -39,7 +43,7 @@ WORD_NUMBERS = {
 
 def to_pen_decimal(number_str: str) -> float:
     number_str = re.sub(r"\(|\)|°C|/min|/hour", "", number_str)
-    number_str = re.sub(r"^\(|[.,?);\"]$", "", number_str)
+    number_str = re.sub(r"^\(|[.,?!);\"]$", "", number_str)
     #assert NUMBER_OR_FRACTION_PATTERN.fullmatch(number_str), f"{number_str}"
     number_str = re.sub(',', '', number_str)
     number_str = re.sub(r"(\d+(\.\d+)?)%", r"\1*100", number_str)
@@ -236,12 +240,9 @@ class Math23kProblem(MathWordProblem):
                 
 
     def set_exclude(self) -> None:
-        exclude_text_pattern = r"[=*-+]|\([\s\d]*\)|[△○□]|\.\.\."
-        exclude_eq_pattern = r"[^=*-+/()\[\]{}.\w]"
-        exclude_non_mwp = r"[^a-zA-Z]"
+        exclude_text_pattern = r"[=*-+]|\(\d+\)|\(\)|[△○□]|\.\.\."
+        exclude_eq_pattern = r"[^=*\-+/%()\[\]{}.\w]"
         if re.search(exclude_text_pattern, self.text):
-            self._exclude = True
-        if re.fullmatch(exclude_non_mwp, self.text):
             self._exclude = True
         if re.search(exclude_eq_pattern, self.oldFormula[0]):
             self._exclude = True
