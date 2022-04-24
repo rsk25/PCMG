@@ -9,5 +9,16 @@ Original PEN dataset provided by [Bugeun Kim, Ph.D.](https://scholar.google.com/
 We use the PEN and Math23k as training data.
 ## Preprocessing Math23k
 ```
-python preprocess.py
+python preprocess.py -d math23k_only -c 1
+```
+Man page for `preprocess.py`:
+```
+usage: preprocess.py [-h] --dataset-name DATASET_NAME [--concat-to-pen CONCAT_TO_PEN]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dataset-name DATASET_NAME, -d DATASET_NAME
+                        The name of new dataset
+  --concat-to-pen CONCAT_TO_PEN, -c CONCAT_TO_PEN
+                        Decides whether to concat to PEN or not; the output will be called 'new_pen.json'
 ```
