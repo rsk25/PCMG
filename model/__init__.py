@@ -3,6 +3,7 @@ from .ept import EPT, MODEL_CLS
 from .swan import *
 
 MODELS = {
+    'EPT': EPT,
     'SWAN_P1': SWANPhase1Only
 }
 
