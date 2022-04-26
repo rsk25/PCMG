@@ -9,7 +9,7 @@ from preproc.util import *
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset-name', '-d', required=True, default="math23k_only.json", type=str, help="The name of new dataset")
+parser.add_argument('--dataset-name', '-d', required=True, default="math23k_only", type=str, help="The name of new dataset")
 parser.add_argument('--concat-to-pen', '-c', default=1, type=bool, help="Decides whether to concat to PEN or not; \
     the output will be called 'new_pen.json'")
 

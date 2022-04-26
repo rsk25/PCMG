@@ -264,6 +264,7 @@ class Math23kProblem(MathWordProblem):
             self.set_all()
 
         return dict(
+            _exclude=self._exclude,
             _id=self._id,
             _represent=self._represent,
             answer=self.answers,
@@ -278,7 +279,6 @@ class Math23kProblem(MathWordProblem):
             text=self.text,
             worker_for_train=self.worker_for_train,
             explanations=self.explanations,
-            _excluded=self._exclude
         )
     
 

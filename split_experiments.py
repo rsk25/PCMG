@@ -14,12 +14,14 @@ if __name__ == "__main__":
         dataset = json.load(fp)
     
     assert type(dataset) == list
+
+    id_list = get_ids(dataset)
+    print(id_list[:10])
     
-    train_index, dev_index, test_index = split_train_dev_test_indices(dataset)
-    print(f"train_index: {train_index}")
-    print(f"dev_index: {dev_index}")
-    print(f"test_index: {test_index}")
-    # train_split, dev_split, test_split = split_train_dev_test_id(dataset)
+    # train_indices, dev_indices, test_indices = set_indices(dataset)
+    # train_split, _dataset = get_split_ids(dataset, train_indices)
+    # dev_split, _dataset = get_split_ids(_dataset, dev_indices)
+    # test_split, _dataset = get_split_ids(_dataset, test_indices)
 
 
     # TRAIN = EXP_PATH / 'train'

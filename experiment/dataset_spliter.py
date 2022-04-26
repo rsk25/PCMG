@@ -6,13 +6,19 @@ import json
 import numpy as np
 from numpy.random import default_rng
 
-random = default_rng(9172)
+
+def get_ids(dataset: List[Dict[Any, Any]]) -> List[str]:
+    id_list = []
+    for problem in dataset:
+        id_list.append(problem.get('_id'))
+
+    assert len(id_list) == len(dataset)
+
+    return id_list
 
 
-# split dataset using numpy into train/dev/test -> ratio: 8:1:1
-    # must not overlap
-    # choose without replacement
 def set_indices(dataset: List[Dict[Any, Any]]) -> Tuple[List[int], List[int], List[int]]:
+    random = default_rng(9172)
     total_num = len(dataset)
     
     # set test indices
@@ -30,8 +36,18 @@ def set_indices(dataset: List[Dict[Any, Any]]) -> Tuple[List[int], List[int], Li
 
     return train_indices, dev_indices, test_indices
 
+
+# def get_split_ids(dataset: List[Dict[Any, Any]], _indices: List[int]) -> Tuple(List[str], List[Dict[Any, Any]]):
+#     split = []
+#     for prob in enumerate(dataset):
+#         prob: dict
+#         split
+
+#     return split
+
+
 # write split to non-extension text files
     # default save directory: /resource/experiments/pen/
 
 
-__all__ = ['split_train_dev_test_indices']
+__all__ = ['get_ids','set_indices']
