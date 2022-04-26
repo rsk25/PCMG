@@ -3,38 +3,36 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 import json
 
-import numpy as np
-from numpy.random import default_rng
+import random
+
+from numpy import test
 
 
 def get_ids(dataset: List[Dict[Any, Any]]) -> List[str]:
     id_list = []
     for problem in dataset:
-        id_list.append(problem.get('_id'))
+        if not problem.get('_exclude'):
+            id_list.append(problem.get('_id'))
 
-    assert len(id_list) == len(dataset)
+    assert(len(id_list) < len(dataset))
 
     return id_list
 
 
-def set_indices(dataset: List[Dict[Any, Any]]) -> Tuple[List[int], List[int], List[int]]:
-    random = default_rng(9172)
-    total_num = len(dataset)
-    
-    # set test indices
-    indices = np.arange(total_num)
-    test_indices = random.choice(indices, total_num//10, replace=False).tolist()
-    # set validation indices
-    indices = np.array([i for i in indices if i not in test_indices])
-    dev_indices = random.choice(indices, total_num//10, replace=False).tolist()
-    # set train indices
-    train_indices = [i for i in indices if i not in dev_indices]
-    # sanity check
-    number_of_indices = len(test_indices) + len(dev_indices) + len(train_indices)
-    assert number_of_indices == total_num, \
-        f"total is {total_num}, but the number of indices is {number_of_indices}; they are not the same"
+def split_data(id_list: List[str]) -> Tuple[List[int], List[int], List[int]]:
+    total_num = len(id_list)
+    random.shuffle(id_list)
 
-    return train_indices, dev_indices, test_indices
+    # set test indices
+    test_split = id_list[:total_num//10]
+    # set validation indices
+    dev_split = id_list[total_num//10:total_num//10*2]
+    # set train indices
+    train_split = id_list[total_num//10*2:]
+    assert len(train_split) + len(dev_split) + len(test_split) == total_num
+    
+
+    return train_split, dev_split, test_split
 
 
 # def get_split_ids(dataset: List[Dict[Any, Any]], _indices: List[int]) -> Tuple(List[str], List[Dict[Any, Any]]):
@@ -50,4 +48,4 @@ def set_indices(dataset: List[Dict[Any, Any]]) -> Tuple[List[int], List[int], Li
     # default save directory: /resource/experiments/pen/
 
 
-__all__ = ['get_ids','set_indices']
+__all__ = ['get_ids','split_data']
