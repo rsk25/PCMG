@@ -267,7 +267,7 @@ class Math23kProblem(MathWordProblem):
             _exclude=self._exclude,
             _id=self._id,
             _represent=self._represent,
-            answer=self.answers,
+            answers=self.answers,
             dataset=self.dataset,
             equations=self.equations,
             index=self.index,
