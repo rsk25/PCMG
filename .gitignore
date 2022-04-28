@@ -14,3 +14,5 @@ venv/
 
 # ignore large directories (however, these directories are essential and must be downloaded from elsewhere)
 resource/bleurt/
+resource/dataset/new_pen.json
+resource/dataset/math23k_only.json
