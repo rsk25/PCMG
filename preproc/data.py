@@ -123,8 +123,8 @@ class Math23kProblem(MathWordProblem):
 
 
     def _math23k_to_pen_format(self, math23k_str: str) -> str:
-        pattern1 = r'num(\d{2})([%(),?]|.$)?'
-        pattern2 = r'num(\d{1})([%(),?]|.$)?'
+        pattern1 = r'num(\d{2})([%(),?]|\.$)?'
+        pattern2 = r'num(\d{1})([%(),?]|\.$)?'
         pen_str = re.sub(pattern1, NUM_PREFIX+r'\1', math23k_str)
         pen_str = re.sub(pattern2, NUM_PREFIX+r'0\1', pen_str)
         return pen_str
@@ -227,7 +227,7 @@ class Math23kProblem(MathWordProblem):
             if re.search(p1, labeled_text):
                 new_number = deepcopy(NUMBERS_DEFAULT_FORMAT)
                 new_number.update({'key': self._math23k_to_pen_format(labeled_text)})
-                new_number.update({'token': [re.sub(r"[%(),?:]|.$", "",orig_text)]})
+                new_number.update({'token': [re.sub(r"[%(),?:]|\.$", "",orig_text)]})
                 new_number.update({'tokenRange': [i]})
                 new_number.update({'value': to_pen_decimal(orig_text)})
                 self.numbers.append(new_number)
