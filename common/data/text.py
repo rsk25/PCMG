@@ -135,23 +135,25 @@ class Text(TypeTensorBatchable, TypeSelectable):
                   for tok in tokens]
         assert len(tokens) == len(token_nids)
 
-        # Make snippet of numbers ### rsk: add dependency parser here
+        # Make snippet of numbers
         number_snippets = []
-        for nid in range(max(token_nids) + 1):
-            token_start = token_nids.index(nid)
-            window_start = max(1, token_start - number_window)  # Exclude [CLS]
-            window_end = min(token_start + 1 + number_window, len(tokens) - 1)  # Exclude [SEP] at the end
+        for i in wid_to_nid.keys():
+            number_snippets.append([tokens[i+1]])
+        # for nid in range(max(token_nids) + 1):
+        #     token_start = token_nids.index(nid)
+        #     window_start = max(1, token_start - number_window)  # Exclude [CLS]
+        #     window_end = min(token_start + 1 + number_window, len(tokens) - 1)  # Exclude [SEP] at the end
 
-            snippet_left = tokens[window_start:token_start]
-            snippet_right = tokens[(token_start + 1):window_end]
+        #     snippet_left = tokens[window_start:token_start]
+        #     snippet_right = tokens[(token_start + 1):window_end]
 
-            snippet_left = ([PAD_ID] * (number_window - len(snippet_left))) + snippet_left
-            snippet_right = snippet_right + ([PAD_ID] * (number_window - len(snippet_right)))
-            snippet = snippet_left + tokens[token_start:token_start + 1] + snippet_right
-            number_snippets.append(snippet)
-            assert len(number_snippets[-1]) == number_window * 2 + 1
+        #     snippet_left = ([PAD_ID] * (number_window - len(snippet_left))) + snippet_left
+        #     snippet_right = snippet_right + ([PAD_ID] * (number_window - len(snippet_right)))
+        #     snippet = snippet_left + tokens[token_start:token_start + 1] + snippet_right
+        #     number_snippets.append(snippet)
+        #     assert len(number_snippets[-1]) == number_window * 2 + 1
 
-        assert len(number_snippets) == max(token_nids) + 1
+        # assert len(number_snippets) == max(token_nids) + 1
         return Text(raw=text, tokens=Label.from_list(tokens), numbers=Label.from_list(token_nids),
                     snippets=Label.from_list(number_snippets))
 
