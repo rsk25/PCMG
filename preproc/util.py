@@ -1,3 +1,4 @@
+from typing import List, Dict, Any, Tuple
 import json
 from pathlib import Path
 
@@ -9,6 +10,17 @@ def save_dataset(dataset, filename):
     file_path = DATA_PATH / filename
     with file_path.open('w+t') as fp:
         json.dump(dataset, fp)
+
+
+def non_excluded_only(data: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
+    new_data = []
+    excluded_num = 0
+    for d in data:
+        if not d.get('_exclude', True):
+            new_data.append(d)
+        else:
+            excluded_num += 1
+    return new_data, excluded_num
 
 
 def concat_to_pen(additional_data):
@@ -49,5 +61,5 @@ def load_math23k():
     return math23k
 
 
-__all__ = ['concat_to_pen','load_math23k','save_dataset']
+__all__ = ['concat_to_pen','load_math23k','save_dataset','non_excluded_only']
 
