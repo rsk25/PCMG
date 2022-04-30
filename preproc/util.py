@@ -1,6 +1,11 @@
+import re
 from typing import List, Dict, Any, Tuple
 import json
 from pathlib import Path
+
+from sympy.core.numbers import E, _eval_is_eq
+
+from .data import MathWordDataset
 
 DATA_PATH = Path('resource/dataset')
 MATH23K_PATH = DATA_PATH / 'math23k_preproc'
@@ -34,12 +39,13 @@ def concat_to_pen(additional_data):
     return new_pen_data
 
 
-def load_math23k():
+def load_math23k(fixed: bool):
     math23k = []
     math23k_file = MATH23K_PATH / 'math23k_translated.json'
     with math23k_file.open('r+t') as fp:
         for item in json.load(fp):
             math23k.append({
+                'problem_id': item['id'],
                 'oldText': item['text_en'],
                 'oldFormula': [item['equation']],
                 'oldAnswer': [item['ans']]
@@ -50,16 +56,45 @@ def load_math23k():
             for i, item in enumerate(json.load(fp)):
                 data_list[i].update({'%s_template' % template_name: item})
 
-    for file in MATH23K_PATH.glob('*_template.json'):
-        if 'eqs' in file.stem:
-            _update_math23k('eqs', file, math23k)
-        elif 'mwp' in file.stem:
-            _update_math23k('mwp',file, math23k)
-        else:
-            raise FileNotFoundError()
+    if fixed:
+        for file in MATH23K_PATH.glob('*_template.json'):
+            if 'eqs' in file.stem:
+                _update_math23k('eqs', file, math23k)
+            elif 'mwp' in file.stem:
+                _update_math23k('mwp',file, math23k)
+            else:
+                raise FileNotFoundError()
+    else:
+        for file in DATA_PATH.glob('*_template.json'):
+            if 'new_eqs' in file.stem:
+                _update_math23k('eqs', file, math23k)
+            elif 'new_mwp' in file.stem:
+                _update_math23k('mwp',file, math23k)
+            else:
+                raise FileNotFoundError()
 
     return math23k
 
 
-__all__ = ['concat_to_pen','load_math23k','save_dataset','non_excluded_only']
+def extra_preproc_equation(data_class: 'MathWordDataset') -> List[int]:
+    list_of_buggy_probs = []
+    problem_list = data_class.problems
+    for problem in problem_list:
+        if not problem._exclude:
+            equation = problem.equations
+            if re.search(r'\d+/\d+',equation[0]):
+                list_of_buggy_probs.append(
+                    {
+                        'id': problem.problem_id,
+                        'oldText': problem.oldText,
+                        'text': problem.text,
+                        'equation': equation,
+                        'orig_eqs': problem.orig_eqs_template,
+                        'mwp': problem.orig_mwp_template
+                    }
+                )
 
+    return list_of_buggy_probs
+
+
+__all__ = ['concat_to_pen','load_math23k','save_dataset','non_excluded_only','extra_preproc_equation']

@@ -44,7 +44,6 @@ WORD_NUMBERS = {
 def to_pen_decimal(number_str: str) -> float:
     number_str = re.sub(r"\(|\)|°C|/min|/hour", "", number_str)
     number_str = re.sub(r"^\(|[.,?!);\"]$", "", number_str)
-    #assert NUMBER_OR_FRACTION_PATTERN.fullmatch(number_str), f"{number_str}"
     number_str = re.sub(',', '', number_str)
     number_str = re.sub(r"(\d+(\.\d+)?)%", r"\1*100", number_str)
     try:
@@ -112,11 +111,14 @@ class MathWordDataset:
 
 
 class Math23kProblem(MathWordProblem):
-    def __init__(self, oldText: str, oldFormula: List[str], oldAnswer: List[str], mwp_template: str, eqs_template: List[str]) -> None:
+    def __init__(self, problem_id: str, oldText: str, oldFormula: List[str], oldAnswer: List[str], mwp_template: str, eqs_template: List[str]) -> None:
         super().__init__(oldText, oldFormula, oldAnswer)
         self.dataset = "math23k"
+        self.problem_id = int(problem_id)
 
         # attributes that are used as templates for parsing
+        self.orig_mwp_template = mwp_template
+        self.orig_eqs_template = eqs_template
         self.mwp_template = mwp_template
         self.eqs_template = eqs_template
         self.is_set = False
@@ -169,21 +171,29 @@ class Math23kProblem(MathWordProblem):
         
         assert len(key_token_range_value_stack) != 0 and len(key_stack) != 0
         
-
         new_eqs = []
         op_pattern = r"(\(\d+/\d+\)|\d+\.\d+%{1}|\d+\.\d+|\d+%{1}(?=[-*/+={}\[\]()%])|\d+%{1}$|\d+(?!%)|\d+|[a-zA-Z-*/+={}\[\]()%+])"
         num_pattern = r'num\d{1,2}'
         for old_formula, eq_temp in zip(self.oldFormula, self.eqs_template):
             oldFormula_spaced = re.sub(op_pattern, r"\1 ", old_formula).rstrip()
             oldFormula_split = oldFormula_spaced.split()
+
+            new_oldFormula_split = []
+            for op in oldFormula_split:
+                if re.match(r"\(\d+/\d+\)", op) and (op[1:-1] not in self.oldText):
+                    new_ops = re.sub(r"\((\d+)/(\d+)\)", r"( \1 / \2 )", op)
+                    new_oldFormula_split += new_ops.split()
+                else:
+                    new_oldFormula_split.append(op)
+
             eqs_template_split = eq_temp.split()
 
-            assert len(oldFormula_split) == len(eqs_template_split), \
-                f"oldFormula: {oldFormula_split},\n \
+            assert len(new_oldFormula_split) == len(eqs_template_split), \
+                f"oldFormula: {new_oldFormula_split},\n \
                 eqs_template: {eqs_template_split}"
             
             _eq = []
-            for orig_op, _op in zip(oldFormula_split, eqs_template_split):
+            for orig_op, _op in zip(new_oldFormula_split, eqs_template_split):
                 if re.fullmatch(num_pattern, _op):
                     new_op = self._math23k_to_pen_format(_op)
                     if new_op in key_stack:
@@ -292,9 +302,15 @@ class Math23kDataset(MathWordDataset):
     def append_to_dataset(self, problem: 'Math23kProblem') -> None:
         if not problem._exclude:
             problem._id = hex(self.start_id + self.number_of_problems)[2:]
-            #problem.index = self.start_index + self.number_of_problems
             self.problems.append(problem.as_dict())
-            
+
+    
+    def stack(self, problem: 'Math23kProblem') -> None:
+        if not problem._exclude:
+            problem._id = hex(self.start_id + self.number_of_problems)[2:]
+            problem.set_all()
+            self.problems.append(problem)
+
 
     def to_json(self, json_name: str) -> None:
         with open(json_name, 'w+', encoding='utf-8') as json_writer:
