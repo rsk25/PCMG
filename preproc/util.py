@@ -66,9 +66,9 @@ def load_math23k(fixed: bool):
                 raise FileNotFoundError()
     else:
         for file in DATA_PATH.glob('*_template.json'):
-            if 'new_eqs' in file.stem:
+            if 'need_fix_eqs' in file.stem:
                 _update_math23k('eqs', file, math23k)
-            elif 'new_mwp' in file.stem:
+            elif 'need_fix_mwp' in file.stem:
                 _update_math23k('mwp',file, math23k)
             else:
                 raise FileNotFoundError()
@@ -76,25 +76,47 @@ def load_math23k(fixed: bool):
     return math23k
 
 
-def extra_preproc_equation(data_class: 'MathWordDataset') -> List[int]:
+def extra_preproc(data_class: 'MathWordDataset', pattern: str, for_equation: bool) -> List[int]:
     list_of_buggy_probs = []
     problem_list = data_class.problems
     for problem in problem_list:
         if not problem._exclude:
-            equation = problem.equations
-            if re.search(r'\d+/\d+',equation[0]):
-                list_of_buggy_probs.append(
-                    {
-                        'id': problem.problem_id,
-                        'oldText': problem.oldText,
-                        'text': problem.text,
-                        'equation': equation,
-                        'orig_eqs': problem.orig_eqs_template,
-                        'mwp': problem.orig_mwp_template
-                    }
-                )
+            if for_equation:
+                equation = problem.equations
+                if re.search(pattern, equation[0]):
+                    list_of_buggy_probs.append(
+                        {
+                            'id': problem.problem_id,
+                            'orig_text': problem.oldText,
+                            'preproc_eqs': equation,
+                            'orig_equation': problem.oldFormula,
+                            'orig_answer': problem.oldAnswer,
+                            'orig_eqs_temp': problem.orig_eqs_template,
+                            'orig_mwp_temp': problem.orig_mwp_template
+                        }
+                    )
+            else:
+                oldText = problem.oldText
+                if re.search(pattern, oldText):
+                    list_of_buggy_probs.append(
+                        {
+                            'id': problem.problem_id,
+                            'orig_text': oldText,
+                            'preproc_eqs': problem.equations,
+                            'orig_equation': problem.oldFormula,
+                            'orig_answer': problem.oldAnswer,
+                            'orig_eqs_temp': problem.orig_eqs_template,
+                            'orig_mwp_temp': problem.orig_mwp_template
+                        }
+                    )
 
     return list_of_buggy_probs
 
 
-__all__ = ['concat_to_pen','load_math23k','save_dataset','non_excluded_only','extra_preproc_equation']
+__all__ = [
+    'concat_to_pen',
+    'load_math23k',
+    'save_dataset',
+    'non_excluded_only',
+    'extra_preproc'
+]

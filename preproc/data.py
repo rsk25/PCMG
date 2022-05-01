@@ -60,7 +60,7 @@ class MathWordProblem:
         self._id: str = None
         self._represent: bool = False
         self.text: str = None
-        self.equations: List[str] = None
+        self.equations: List[str] = []
         self.numbers: Dict[str, Union[List[str], str]] = []
         self.answers: List[Dict[str, Union[str,bool]]] = [{"_selected": True}]
         self.index: int = None
@@ -129,6 +129,7 @@ class Math23kProblem(MathWordProblem):
         pattern2 = r'num(\d{1})([%(),?]|\.$)?'
         pen_str = re.sub(pattern1, NUM_PREFIX+r'\1', math23k_str)
         pen_str = re.sub(pattern2, NUM_PREFIX+r'0\1', pen_str)
+        pen_str = re.sub(r".*(N_0\d{1}|N_\d{2}).*",r"\1", pen_str)
         return pen_str
 
     
@@ -176,6 +177,8 @@ class Math23kProblem(MathWordProblem):
         num_pattern = r'num\d{1,2}'
         for old_formula, eq_temp in zip(self.oldFormula, self.eqs_template):
             oldFormula_spaced = re.sub(op_pattern, r"\1 ", old_formula).rstrip()
+            oldFormula_spaced = re.sub(r"\[", r"(", oldFormula_spaced)
+            oldFormula_spaced = re.sub(r"\]", r")", oldFormula_spaced)
             oldFormula_split = oldFormula_spaced.split()
 
             new_oldFormula_split = []
@@ -211,7 +214,11 @@ class Math23kProblem(MathWordProblem):
 
             new_eqs.append(' '.join(_eq))
 
-        self.equations = new_eqs
+        for eqs in new_eqs:
+            if re.search(r" [03-9]+ | [12][^\s]| [1-24-9]+\.\d+| 0\.[^01]|\.\.\.|\d{3}|(?<![N_.])\d{2}|\d+/\d+", eqs):
+                self._exclude = True
+            else:
+                self.equations.append(eqs)
 
 
     def set_numbers(self) -> None:
