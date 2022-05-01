@@ -48,7 +48,7 @@ if __name__ == '__main__':
             math23k_dataset.append_to_dataset(math23k_problem)
 
     if args.extra:
-        list_of_buggy_probs = extra_preproc_equation(math23k_dataset)
+        list_of_buggy_probs = extra_preproc(math23k_dataset, r'million|billion', False)
         LOG_FILE = LOG_PATH / "buggy_probs.json"
         with LOG_FILE.open('w+t') as fp:
             json.dump(list_of_buggy_probs, fp)
