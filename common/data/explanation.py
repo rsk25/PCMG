@@ -32,11 +32,17 @@ class Explanation(TypeBatchable):
 
     @property
     def number_for_train(self) -> Label:
-        return self.numbers[self.worker]
+        if self.worker == -1:
+            return Label(torch.tensor([0]))
+        else:
+            return self.numbers[self.worker]
 
     @property
     def variable_for_train(self) -> Label:
-        return self.variables[self.worker]
+        if self.worker == -1:
+            return Label(torch.tensor([0]))
+        else:
+            return self.variables[self.worker]
 
     @property
     def device(self) -> torch.device:
