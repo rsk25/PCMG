@@ -204,14 +204,6 @@ class Dataset:
 
         return batches
 
-    def get_all_explanations(self) -> List[str]:
-        result = []
-        for item in self._whole_items:
-            for value in item.explanation.to_id_explanation_dict(self.tokenizer, include_skip=self.include_skip).values():
-                if value:
-                    result += value
-
-        return result
 
     @property
     def items(self):
