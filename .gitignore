@@ -4,9 +4,6 @@ venv/
 .venv/
 .vscode/
 
-# ignore all analysis settings
-*.ipynb_checkpoints/
-
 # ignore cache
 *__pycache__/
 *.cached
@@ -17,5 +14,11 @@ resource/bleurt/
 resource/dataset/new_pen.json
 resource/dataset/math23k_only.json
 resource/dataset/math23k_preproc/archive/
-distribution_analysis/
+runs/
+
+# ignore peripheral directories and scripts
 *synology*
+
+# ignore files that are used only for testing and simple analysis
+number_of_excluded_from_math23k_only
+distribution_analysis/
