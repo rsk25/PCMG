@@ -9,7 +9,7 @@ Original PEN dataset provided by [Bugeun Kim, Ph.D.](https://scholar.google.com/
 We use the PEN and Math23k as training data.
 ## Preprocessing Math23k
 ```
-python preprocess.py -d math23k_only --no-extra --fixed
+python preprocess.py -d math23k_only --no-extra --fixed --concat-to-pen
 ```
 Man page for `preprocess.py`:
 ```
@@ -30,4 +30,8 @@ optional arguments:
 ```
 python preprocess.py -d math23k_only --extra --not-fixed
 python fix_buggy_probs.py
+```
+## Split into new experiments using new dataset
+```
+python split_experiments.py
 ```
