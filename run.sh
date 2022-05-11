@@ -6,7 +6,7 @@ DATA=./resource/dataset/new_pen.json
 export TOKENIZERS_PARALLELISM=false
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-for SUBSET_TYPE in pen
+for SUBSET_TYPE in new_pen
 do
 	EXPNAME=${SUBSET_TYPE}_${ENCODER_SIZE}_$2
 	EXPERIMENT=./resource/experiments/${SUBSET_TYPE}
@@ -21,13 +21,13 @@ do
 
 	killall -9 -r 'ray::'
 	python train_model.py -name $EXPNAME\
-	  -data $DATA -exp $EXPERIMENT -model EPT -enc $ENCODER \
+	  -data $DATA -exp $EXPERIMENT -model MathGenerator -enc $ENCODER \
 	  -cpu 1 -gpu 1 -iter $EPOCH -bsz 16 -lr 0.000625 0.00088 0.00125 0.00176 -warmup $WARMUP -win 0
 #	python train_model.py -name $EXPNAME\
 #	  -data $DATA -exp $EXPERIMENT -model EPT SWAN SWAN_A SWAN_B SWAN_P1 -enc $ENCODER \
 #	  -cpu 1 -gpu 1 -iter $EPOCH -bsz 16 -lr 0.000625 0.00088 0.00125 0.00176 -warmup $WARMUP -win 3
 
-	RECENT=$(ls ./runs/pen_${EXPNAME}_* -1dt | head -n 1)
+	RECENT=$(ls ./runs/new_pen_${EXPNAME}_* -1dt | head -n 1)
 	if [[ "${SUBSET_TYPE}" == *-fold0 ]]
 	then
 		# Run fold training

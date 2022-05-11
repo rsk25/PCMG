@@ -136,7 +136,7 @@ class SupervisedTrainer(Trainable):
         # Read dataset
         if self._dataset is None:
             self._dataset = Dataset(path=new_config[KEY_DATASET], langmodel=new_config[KEY_MODEL][MDL_ENCODER],
-                                    seed=new_config[KEY_SEED], number_window=new_config[KEY_WINDOW])
+                                    seed=new_config[KEY_SEED])
         else:
             self._dataset.reset_seed(new_config[KEY_SEED])
 
