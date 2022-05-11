@@ -10,16 +10,18 @@ from preproc.util import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset-name', '-d', required=True, default="math23k_only", type=str, help="The name of new dataset")
-parser.add_argument('--concat-to-pen', '-c', default=1, type=bool, \
-    help="Decides whether to concat to PEN or not; the output will be called 'new_pen.json'")
+parser.add_argument('--concat-to-pen', action='store_true', \
+    help="Concat new dataset to PEN; the output will be called 'new_pen.json'")
+parser.add_argument('--no-concat', dest='concat-to-pen', action='store_false', \
+    help="Will not concat new dataset to PEN")
 parser.add_argument('--extra', action='store_true', \
     help="Will not save the file and instead get items that need extra preprocessing")
 parser.add_argument('--no-extra', dest='extra', action='store_false', \
-    help="Will save the file and not get items that need extra preprocessing")
+    help="Save the file and not get items that need extra preprocessing")
 parser.add_argument('--fixed', action='store_true', \
     help="Will not toggle to debugging mode, when loading data")
 parser.add_argument('--not-fixed', dest='fixed', action='store_false', \
-    help="Will toggle to debugging mode, when loading data")
+    help="Toggle to debugging mode, when loading data")
 
 
 
@@ -40,7 +42,9 @@ if __name__ == '__main__':
     # Loading the entire math23k dataset
     math23k = load_math23k(args.fixed)
     math23k_dataset = Math23kDataset()
+    cnt = 0
     for problem in tqdm(math23k):
+        cnt += 1
         math23k_problem = Math23kProblem(**problem)
         if args.extra:
             math23k_dataset.stack(math23k_problem)

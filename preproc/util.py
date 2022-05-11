@@ -11,21 +11,22 @@ DATA_PATH = Path('resource/dataset')
 MATH23K_PATH = DATA_PATH / 'math23k_preproc'
 
 
-def save_dataset(dataset, filename):
-    file_path = DATA_PATH / filename
-    with file_path.open('w+t') as fp:
-        json.dump(dataset, fp)
-
-
 def non_excluded_only(data: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
     new_data = []
     excluded_num = 0
     for d in data:
-        if not d.get('_exclude', True):
+        if not d.get('_exclude', True) or d.get('dataset') == 'mawps':
             new_data.append(d)
         else:
             excluded_num += 1
     return new_data, excluded_num
+
+
+def save_dataset(dataset, filename):
+    file_path = DATA_PATH / filename
+    dataset, _ = non_excluded_only(dataset)
+    with file_path.open('w+t') as fp:
+        json.dump(dataset, fp)
 
 
 def concat_to_pen(additional_data):

@@ -259,7 +259,10 @@ class Math23kProblem(MathWordProblem):
     def set_exclude(self) -> None:
         exclude_text_pattern = r"[=*-+]|\(\d+\)|\(\)|[△○□]|\.\.\."
         exclude_eq_pattern = r"[^=*\-+/%()\[\]{}.\w]"
+        keywords = r"what|when|how|many|much|\?"
         if re.search(exclude_text_pattern, self.text):
+            self._exclude = True
+        if re.search(keywords, self.text) is None:
             self._exclude = True
         if re.search(exclude_eq_pattern, self.oldFormula[0]):
             self._exclude = True
@@ -277,7 +280,7 @@ class Math23kProblem(MathWordProblem):
 
 
     def as_dict(self) -> dict:
-        if self.is_set is False:
+        if self.is_set == False:
             self.set_all()
 
         return dict(
@@ -307,9 +310,8 @@ class Math23kDataset(MathWordDataset):
     
 
     def append_to_dataset(self, problem: 'Math23kProblem') -> None:
-        if not problem._exclude:
-            problem._id = hex(self.start_id + self.number_of_problems)[2:]
-            self.problems.append(problem.as_dict())
+        problem._id = hex(self.start_id + self.number_of_problems)[2:]
+        self.problems.append(problem.as_dict())
 
     
     def stack(self, problem: 'Math23kProblem') -> None:
