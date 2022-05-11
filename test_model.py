@@ -3,6 +3,7 @@ import os
 from argparse import ArgumentParser
 from os import cpu_count
 from typing import Tuple
+from pathlib import Path
 
 import ray
 import tqdm
@@ -54,7 +55,7 @@ def run_model_for_attention(model_path, **exp_dict):
 
     with torch.no_grad():
         
-        dataset.select_items_with_file('/home/cocochanel/NVIX/resource/experiments/pen/test')
+        dataset.select_items_with_file(Path('./resource/experiments/new_pen/test'))
         output_pairs = []
         results = {}
         for batch in dataset.get_minibatches(config[KEY_BATCH_SZ], for_testing=True):

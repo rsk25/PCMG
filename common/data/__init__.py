@@ -102,9 +102,9 @@ class Example(TypeBatchable):
         raise NotImplementedError('This operation is not supported')
 
     @classmethod
-    def from_dict(cls, raw: dict, tokenizer, number_window: int = 5) -> 'Example':
+    def from_dict(cls, raw: dict, tokenizer, nlp) -> 'Example':
         _info = ExtraInfo.from_dict(raw)
-        _text = Text.from_dict(raw, tokenizer=tokenizer, number_window=number_window)
+        _text = Text.from_dict(raw, tokenizer=tokenizer, nlp=nlp)
         _equation = Equation.from_dict(raw, var_list_out=_info.variables)
         _explanation = Explanation.from_dict(raw, n_numbers=len(_info.numbers),
                                              var_list=_info.variables, tokenizer=tokenizer)

@@ -55,20 +55,20 @@ class Text(TypeTensorBatchable, TypeSelectable):
     tokens: Label
     #: Number index label for each token
     numbers: Label
-    #: Number snippets for each number label
-    snippets: Union[Label, List[Label]]
+    #: Number keywords for each number label
+    keywords: Union[Label, List[Label]]
 
-    def __init__(self, raw: Union[str, List[str]], tokens: Label, numbers: Label, snippets: Union[Label, List[Label]]):
+    def __init__(self, raw: Union[str, List[str]], tokens: Label, numbers: Label, keywords: Union[Label, List[Label]]):
         super().__init__()
         self.raw = raw
         self.tokens = tokens
         self.numbers = numbers
-        self.snippets = snippets
+        self.keywords = keywords
 
     def __getitem__(self, item) -> 'Text':
         if type(item) is int and self.is_batched:
             return Text(raw=self.raw[item], tokens=self.tokens[item], numbers=self.numbers[item],
-                        snippets=self.snippets[item])
+                        keywords=self.keywords[item])
         else:
             return super().__getitem__(item)
 
@@ -93,10 +93,10 @@ class Text(TypeTensorBatchable, TypeSelectable):
         return Text(raw=[item.raw for item in items],
                     tokens=Label.build_batch(*[item.tokens for item in items]),
                     numbers=Label.build_batch(*[item.numbers for item in items]),
-                    snippets=[item.snippets for item in items])
+                    keywords=[item.keywords for item in items])
 
     @classmethod
-    def from_dict(cls, raw: dict, tokenizer, number_window: int) -> 'Text':
+    def from_dict(cls, raw: dict, tokenizer, nlp) -> 'Text':
         # Tokenize the text
         spaced, orig_to_new_wid = _add_space_around_number(raw['text'])
         tokens: List[int] = tokenizer.encode(spaced)
@@ -135,30 +135,16 @@ class Text(TypeTensorBatchable, TypeSelectable):
                   for tok in tokens]
         assert len(tokens) == len(token_nids)
 
-        # Make snippet of numbers
-        number_snippets = []
+        # Extract keywords
+        keywords = []
         for i in wid_to_nid.keys():
-            number_snippets.append([tokens[i+1]])
-        # for nid in range(max(token_nids) + 1):
-        #     token_start = token_nids.index(nid)
-        #     window_start = max(1, token_start - number_window)  # Exclude [CLS]
-        #     window_end = min(token_start + 1 + number_window, len(tokens) - 1)  # Exclude [SEP] at the end
-
-        #     snippet_left = tokens[window_start:token_start]
-        #     snippet_right = tokens[(token_start + 1):window_end]
-
-        #     snippet_left = ([PAD_ID] * (number_window - len(snippet_left))) + snippet_left
-        #     snippet_right = snippet_right + ([PAD_ID] * (number_window - len(snippet_right)))
-        #     snippet = snippet_left + tokens[token_start:token_start + 1] + snippet_right
-        #     number_snippets.append(snippet)
-        #     assert len(number_snippets[-1]) == number_window * 2 + 1
-
-        # assert len(number_snippets) == max(token_nids) + 1
+            keywords.append([tokens[i+1]])
+        
         return Text(raw=text, tokens=Label.from_list(tokens), numbers=Label.from_list(token_nids),
-                    snippets=Label.from_list(number_snippets))
+                    keywords=Label.from_list(keywords))
 
     def as_dict(self) -> dict:
-        return dict(raw=self.raw, tokens=self.tokens, numbers=self.numbers, snippets=self.snippets)
+        return dict(raw=self.raw, tokens=self.tokens, numbers=self.numbers, keywords=self.keywords)
 
     def to_human_readable(self, tokenizer=None) -> dict:
         if tokenizer is None:
@@ -170,5 +156,5 @@ class Text(TypeTensorBatchable, TypeSelectable):
             'raw': human_readable_form(self.raw),
             'tokens': self.tokens.to_human_readable(converter=text_converter),
             'numbers': self.numbers.to_human_readable(converter=_number_index_reader),
-            'snippets': human_readable_form(self.snippets, converter=text_converter)
+            'keywords': human_readable_form(self.keywords, converter=text_converter)
         }

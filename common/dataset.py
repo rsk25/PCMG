@@ -40,8 +40,9 @@ def _get_stats_of(values: List[int]) -> dict:
 
 
 class Dataset:
-    def __init__(self, path: str, langmodel: str = DEF_ENCODER, seed: int = 1, number_window: int = 5, include_skip: bool = False):
+    def __init__(self, path: str, langmodel: str = DEF_ENCODER, seed: int = 1, include_skip: bool = False):
         from transformers import AutoTokenizer
+        import spacy
 
         # List of problem items
         self._whole_items: List[Example] = []
@@ -55,11 +56,10 @@ class Dataset:
         self._vocab_size: int = 0
         # Path of this dataset
         self._path = path
-        # Specify size of window
-        self._window_size = number_window
         # Lang Model applied in this dataset
         self._langmodel = langmodel
         self.tokenizer = AutoTokenizer.from_pretrained(self._langmodel)
+        self.nlp = spacy.load("en")
         # RNG for shuffling
         self._rng = Generator(PCG64(seed))
         # include skip
@@ -85,7 +85,7 @@ class Dataset:
         # First, read the JSON with lines file.
         self._vocab_size = len(self.tokenizer)
         with Path(self._path).open('r+t', encoding='UTF-8') as fp:
-            items = [Example.from_dict(item, self.tokenizer, number_window=self._window_size)
+            items = [Example.from_dict(item, self.tokenizer, self.nlp)
                      for item in load(fp)]
 
         # Cache dataset and vocabulary.

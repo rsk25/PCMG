@@ -21,7 +21,7 @@ if __name__ == '__main__':
     solver = Solver()
 
     # Load dataset
-    dataset = Dataset(args.dataset, number_window=0)
+    dataset = Dataset(args.dataset)
     for _item in tqdm(dataset._whole_items):
         answers, err = solver.solve(_item.equation.to_sympy(_item.info.variables), _item.info.numbers)
         if err:
