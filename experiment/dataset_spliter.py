@@ -11,10 +11,9 @@ from numpy import test
 def get_ids(dataset: List[Dict[Any, Any]]) -> List[str]:
     id_list = []
     for problem in dataset:
-        if not problem.get('_exclude'):
-            id_list.append(problem.get('_id'))
+        if problem.get('_exclude') == False or problem.get('dataset') == 'mawps':
+            id_list.append(problem['_id'])
 
-    assert(len(id_list) < len(dataset))
 
     return id_list
 
@@ -33,19 +32,6 @@ def split_data(id_list: List[str]) -> Tuple[List[int], List[int], List[int]]:
     
 
     return train_split, dev_split, test_split
-
-
-# def get_split_ids(dataset: List[Dict[Any, Any]], _indices: List[int]) -> Tuple(List[str], List[Dict[Any, Any]]):
-#     split = []
-#     for prob in enumerate(dataset):
-#         prob: dict
-#         split
-
-#     return split
-
-
-# write split to non-extension text files
-    # default save directory: /resource/experiments/pen/
 
 
 __all__ = ['get_ids','split_data']
