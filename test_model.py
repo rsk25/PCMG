@@ -49,8 +49,7 @@ def run_model_for_attention(model_path, **exp_dict):
         pretrained.to('cuda')
 
     config = load_config(model_path)
-    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED],
-                      number_window=config[KEY_WINDOW])
+    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED])
     tester = Tester()
 
     with torch.no_grad():
@@ -96,8 +95,7 @@ def run_model_once(model_path, **exp_dict):
         pretrained.to('cuda')
 
     config = load_config(model_path)
-    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED],
-                      number_window=config[KEY_WINDOW])
+    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED])
     tester = Tester()
 
     with torch.no_grad():
@@ -167,8 +165,7 @@ def run_faithfulness(model_path, exp_header, faith_args=None, **exp_dict):
         faith_args = [dict()]
 
     config = load_config(model_path)
-    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED],
-                      number_window=config[KEY_WINDOW])
+    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED])
     exp_cls = EXPERIMENT_TYPES[exp_header](pretrained, dataset, config[KEY_BATCH_SZ])
     outdir = Path(model_path)
 
