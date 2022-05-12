@@ -136,13 +136,14 @@ class Text(TypeTensorBatchable, TypeSelectable):
         assert len(tokens) == len(token_nids)
 
         # Extract keywords
-        keywords = []
+        _kws = []
         exclude_words = ['how', 'if', 'when', 'what', 'he', 'she']
         all_stopwords = nlp.Defaults.stop_words
         for tok in text.lower().split():
             if tok not in all_stopwords and tok.isalpha() and len(tok) > 1 and tok not in exclude_words: # remove punctuation and stopwords
-                keywords.append(tok)
-        keywords= sorted(list(set(keywords)))
+                _kws.append(tok)
+        _kws = ' '.join(sorted(list(set(_kws))))
+        keywords = tokenizer.encode(_kws, add_special_tokens=False)
         
         return Text(raw=text, tokens=Label.from_list(tokens), numbers=Label.from_list(token_nids),
                     keywords=Label.from_list(keywords))
