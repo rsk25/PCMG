@@ -444,32 +444,33 @@ class MathGenerator(EPT):
 
         return return_value
 
-    def forward_explanation(self, text: Text, explanation: List[Explanation] = None,
+    def forward_prompt(self, text: Text, keyword: List[Label] = None,
                             dont_generate_expl: bool = False, beam_expl: int = 3, **kwargs) -> Tuple[dict, dict]:
         # (1-0) Prepare kwargs
-        if self.training:
-            num_expl = [d.number_for_train for d in explanation]
-            var_expl = [d.variable_for_train for d in explanation]
-            var_lengths = [d.shape[0] for d in var_expl]
-        elif dont_generate_expl:
-            num_expl = [d.numbers[0] for d in explanation]
-            var_expl = [d.variables[0] for d in explanation]
-            var_lengths = [d.shape[0] for d in var_expl]
-        else:
-            num_expl = []
-            var_expl = []
-            var_lengths = []
-        return_value = {'_num_expl': num_expl, '_var_expl': var_expl, '_var_lengths': var_lengths}
+        keywords = text.keywords
+        # if self.training:
+        #     num_expl = [d.number_for_train for d in explanation]
+        #     var_expl = [d.variable_for_train for d in explanation]
+        #     var_lengths = [d.shape[0] for d in var_expl]
+        # elif dont_generate_expl:
+        #     num_expl = [d.numbers[0] for d in explanation]
+        #     var_expl = [d.variables[0] for d in explanation]
+        #     var_lengths = [d.shape[0] for d in var_expl]
+        # else:
+        #     num_expl = []
+        #     var_expl = []
+        #     var_lengths = []
+        # return_value = {'_num_expl': num_expl, '_var_expl': var_expl, '_var_lengths': var_lengths}
 
         # (1-1) Read text
-        return_value.update(self.encode_text_step101(text))
+        #return_value.update(self.encode_text_step101(text))
 
         # (1-2) Predict var count
-        return_value.update(self.predict_varcount_step102(**return_value, dont_generate_expl=dont_generate_expl))
+        #return_value.update(self.predict_varcount_step102(**return_value, dont_generate_expl=dont_generate_expl))
 
-        # (1-3) Generate explanation
-        if self.training or not dont_generate_expl:
-            return_value.update(self.generate_expl_step103(text, beam=beam_expl, **return_value))
+        # (1-3) Generate keywords
+        # if self.training or not dont_generate_expl:
+        #     return_value.update(self.generate_expl_step103(text, beam=beam_expl, **return_value))
 
         # Separate internal outputs
         external = {}
@@ -490,7 +491,8 @@ class MathGenerator(EPT):
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
         # (2-3) Read/Generate Equation
-        number_len = [d.shape[0] for d in _num_expl]
+        # rsk: The length of numbers and variables should be changed so that they come directly from dataset
+        number_len = [d.shape[0] for d in _num_expl] 
         variable_len = [d.shape[0] for d in _var_expl]
         return_value = self.generate_eqn_step203(equation=equation, number_len=number_len,
                                                  variable_len=variable_len, beam=beam,
@@ -509,7 +511,7 @@ class MathGenerator(EPT):
         return_value = {'eqn_ignore': {OPR_NEW_VAR_ID}}
 
         """ (Phase 1) Explaining numbers/variables """
-        p1_external, p1_internal = self.forward_explanation(text, **kwargs)
+        p1_external, p1_internal = self.forward_prompt(text, **kwargs)
         return_value.update(p1_external)
 
         """ (Phase 2) Building solution equations """

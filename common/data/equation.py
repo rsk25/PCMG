@@ -142,7 +142,7 @@ class Equation(TypeTensorBatchable, TypeSelectable):
                     continue
                 if tok not in var_list_out:
                     var_list_out.append(tok)
-                    equations.append((OPR_NEW_VAR_ID,) + (PAD_ID,) * OPR_MAX_ARITY)
+                    equations.append((OPR_NEW_VAR_ID,) + (PAD_ID,) * OPR_MAX_ARITY) # appends (1, 0, 0)
 
         # Parse equation
         for eqn in raw['equations']:
