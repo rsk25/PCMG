@@ -57,18 +57,21 @@ class Text(TypeTensorBatchable, TypeSelectable):
     numbers: Label
     #: Number keywords for each number label
     keywords: Union[Label, List[Label]]
+    #: Equation(s) that will be used as prompt
+    prompt_eq: Label
 
-    def __init__(self, raw: Union[str, List[str]], tokens: Label, numbers: Label, keywords: Union[Label, List[Label]]):
+    def __init__(self, raw: Union[str, List[str]], tokens: Label, numbers: Label, keywords: Union[Label, List[Label]], prompt_eq: Label):
         super().__init__()
         self.raw = raw
         self.tokens = tokens
         self.numbers = numbers
         self.keywords = keywords
+        self.prompt_eq = prompt_eq
 
     def __getitem__(self, item) -> 'Text':
         if type(item) is int and self.is_batched:
             return Text(raw=self.raw[item], tokens=self.tokens[item], numbers=self.numbers[item],
-                        keywords=self.keywords[item])
+                        keywords=self.keywords[item], prompt_eq=self.prompt_eq[item])
         else:
             return super().__getitem__(item)
 
@@ -93,7 +96,8 @@ class Text(TypeTensorBatchable, TypeSelectable):
         return Text(raw=[item.raw for item in items],
                     tokens=Label.build_batch(*[item.tokens for item in items]),
                     numbers=Label.build_batch(*[item.numbers for item in items]),
-                    keywords=[item.keywords for item in items])
+                    keywords=[item.keywords for item in items],
+                    prompt_eq=Label.build_batch(*[item.prompt_eq for item in items]))
 
     @classmethod
     def from_dict(cls, raw: dict, tokenizer, nlp) -> 'Text':
@@ -144,12 +148,19 @@ class Text(TypeTensorBatchable, TypeSelectable):
                 _kws.append(tok)
         _kws = ' '.join(sorted(list(set(_kws))))
         keywords = tokenizer.encode(_kws, add_special_tokens=False)
+
+        # Extract Equations for text prompt
+        if len(raw['oldFormula']) > 1:
+            _eq = ', '.join(raw['oldFormula'])
+        else:
+            _eq = raw['oldFormula']
+        prompt_eq = tokenizer.encode(_eq, add_special_tokens=False)
         
         return Text(raw=text, tokens=Label.from_list(tokens), numbers=Label.from_list(token_nids),
-                    keywords=Label.from_list(keywords))
+                    keywords=Label.from_list(keywords), prompt_eq=Label.from_list(prompt_eq))
 
     def as_dict(self) -> dict:
-        return dict(raw=self.raw, tokens=self.tokens, numbers=self.numbers, keywords=self.keywords)
+        return dict(raw=self.raw, tokens=self.tokens, numbers=self.numbers, keywords=self.keywords, prompt_eq=self.prompt_eq)
 
     def to_human_readable(self, tokenizer=None) -> dict:
         if tokenizer is None:
@@ -161,5 +172,6 @@ class Text(TypeTensorBatchable, TypeSelectable):
             'raw': human_readable_form(self.raw),
             'tokens': self.tokens.to_human_readable(converter=text_converter),
             'numbers': self.numbers.to_human_readable(converter=_number_index_reader),
-            'keywords': human_readable_form(self.keywords, converter=text_converter)
+            'keywords': human_readable_form(self.keywords, converter=text_converter),
+            'prompt_eq': human_readable_form(self.prompt_eq)
         }
