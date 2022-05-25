@@ -123,10 +123,5 @@ class PointerGeneratorHead(nn.Module):
         # Add copying to generation & return as log-probability
         logprob = (copy_dist + gen_dist).log()
         logprob = logprob.masked_fill(torch.isfinite(logprob).logical_not(), NEG_INF)
-
-        if self.debug:
-            logprob_centers = logprob[:, :, [101, 1996, 4578, 1997, 1996, 18493, 3578, 102]]
-            for attr, val in zip(['attn_score', 'copy_prob', 'copy_attn', 'logprob'], [attn_score, copy_prob, copy_attn, logprob_centers]):
-                self._save_to_attribute(attr, val)
-
+        
         return logprob, (new_key,)
