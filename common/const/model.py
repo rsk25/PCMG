@@ -14,12 +14,9 @@ MDL_Q_INIT = 'init_factor'  #: INITIALIZATION FACTOR FOR TRANSFORMER MODELS
 MDL_Q_LN_EPS = 'layernorm_eps'  #: EPSILON VALUE FOR LAYER NORMALIZATION
 MDL_Q_HEAD = 'head'  #: NUMBER OF MULTI-ATTENTION HEADS
 
-""" Explainer configurations """
-MDL_EXPLANATION = 'explanation'  #: EXPLAINER KEY
-MDL_X_SHUFFLE_ON_TRAIN = 'shuffle' 
-MDL_X_R_BOTH = -1  #: Recombine as SWAN
-MDL_X_R_SUFF = 0  #: Enforce sufficiency (text 0%)
-MDL_X_R_COMP = 1  #: Enforce comprehensiveness (text 100%)
+""" Keyword Selector model configurations """
+MDL_KEYWORD = 'keyword' # KEYWORD MODEL KEY
+MDL_K_SHUFFLE_ON_TRAIN = 'shuffle'
 
 """ Decoder configuration default """
 DEF_Q_EMBED = 128  #: FALLBACK VALUE FOR EMBEDDING DIM

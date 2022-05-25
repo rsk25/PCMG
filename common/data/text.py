@@ -4,6 +4,7 @@ from typing import List, Union, Tuple
 from common.const.operand import PREFIX_LEN
 from common.const.pad import PAD_ID
 from common.pen.pattern import NUMBER_OR_FRACTION_PATTERN as NOF_WITH_START_PATTERN
+from transformers.file_utils import add_start_docstrings
 from .base import *
 from .label import Label
 
@@ -96,7 +97,7 @@ class Text(TypeTensorBatchable, TypeSelectable):
         return Text(raw=[item.raw for item in items],
                     tokens=Label.build_batch(*[item.tokens for item in items]),
                     numbers=Label.build_batch(*[item.numbers for item in items]),
-                    keywords=[item.keywords for item in items],
+                    keywords=Label.build_batch(*[item.keywords for item in items]),
                     prompt_eq=Label.build_batch(*[item.prompt_eq for item in items]))
 
     @classmethod
@@ -139,25 +140,33 @@ class Text(TypeTensorBatchable, TypeSelectable):
                   for tok in tokens]
         assert len(tokens) == len(token_nids)
 
-        # Extract keywords
-        _kws = []
+        # Extract keywords: keywords will be save as raw string because it will later be tokenized
+        # during the special embedding process
+        keywords = []
         exclude_words = ['how', 'if', 'when', 'what', 'he', 'she']
         all_stopwords = nlp.Defaults.stop_words
-        for tok in text.lower().split():
-            if tok not in all_stopwords and tok.isalpha() and len(tok) > 1 and tok not in exclude_words: # remove punctuation and stopwords
-                _kws.append(tok)
-        _kws = ' '.join(sorted(list(set(_kws))))
-        keywords = tokenizer.encode(_kws, add_special_tokens=False)
+        text_lower_split = text.lower().split()
+        for tok in text_lower_split:
+            # remove punctuation and stopwords
+            if tok.isalpha() and (len(tok) > 1) and (tok not in all_stopwords) and (tok not in exclude_words): 
+                keywords.append(tok)
+        if len(keywords) == 0:
+            for tok in text_lower_split:
+                if tok.isalpha() and (len(tok) > 1):
+                    keywords.append(tok)
+        assert len(keywords) != 0
+        keywords_text = ' '.join(set(keywords))
+        keywords_enc = tokenizer.encode(keywords_text, add_special_tokens=False)
 
         # Extract Equations for text prompt
         if len(raw['oldFormula']) > 1:
             _eq = ', '.join(raw['oldFormula'])
         else:
-            _eq = raw['oldFormula']
+            _eq = raw['oldFormula'][0]
         prompt_eq = tokenizer.encode(_eq, add_special_tokens=False)
         
         return Text(raw=text, tokens=Label.from_list(tokens), numbers=Label.from_list(token_nids),
-                    keywords=Label.from_list(keywords), prompt_eq=Label.from_list(prompt_eq))
+                    keywords=Label.from_list(keywords_enc), prompt_eq=Label.from_list(prompt_eq))
 
     def as_dict(self) -> dict:
         return dict(raw=self.raw, tokens=self.tokens, numbers=self.numbers, keywords=self.keywords, prompt_eq=self.prompt_eq)
