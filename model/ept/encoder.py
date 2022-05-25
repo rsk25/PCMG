@@ -40,7 +40,7 @@ class TextEncoder(CheckpointingModule):
     Model for encoding text.
     """
 
-    def __init__(self, encoder: str = DEF_ENCODER):
+    def __init__(self, encoder: str = DEF_ENCODER, is_keyword: bool = False):
         """
         Initiate Text Model instance.
 
@@ -48,9 +48,11 @@ class TextEncoder(CheckpointingModule):
         """
         super().__init__(encoder=encoder)
         from transformers import AutoModel, AutoTokenizer
-
+        
         self.model = AutoModel.from_pretrained(encoder)
         self.pad_id = AutoTokenizer.from_pretrained(encoder).pad_token_id
+
+        self.is_keyword = is_keyword
 
     def _encode(self, label: Label) -> Encoded:
         # Replace PAD_ID (-1) with pad of tokenizer
@@ -69,7 +71,6 @@ class TextEncoder(CheckpointingModule):
         # Encode text
         # Form an encoded output
         encoded = self._encode(text.tokens)
-
         # Gather numbers
         number_out = _gather_number_vectors(encoded.vector, text.numbers.indices)
 
