@@ -410,6 +410,7 @@ class SupervisedTrainer(Trainable):
 
             # Build sum of losses
             total_loss = sum(losses.values())
+            ### Add kw selection loss here: total_loss += kw_loss ###
             losses['total'] = total_loss
             report.update({'loss_' + key: value for key, value in losses.items()})
 
