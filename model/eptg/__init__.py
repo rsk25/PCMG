@@ -16,6 +16,7 @@ from model.base.beamsearch import beam_search, EXPL_BEAM_SZ
 from model.ept import *
 from .explain import ExplanationDecoder
 from .pg_head import PointerGeneratorHead
+from .keyword_selector import KeywordSelector
 
 SWAN_OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
@@ -24,16 +25,19 @@ class MathGenerator(EPT):
     def __init__(self, **config):
         super().__init__(**config)
 
-        # Explanation Decoder
-        self.explanation = ExplanationDecoder.create_or_load(**self.config[MDL_EXPLANATION])
+        # Keyword Selection model
+        self.kw_model = KeywordSelector.create_or_load(**self.config[MDL_KEYWORD])
 
-        # Head for predicting explanation
-        self.explanation_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
-                                                       embed_dim=self.explanation.embed_dim,
-                                                       vocab_size=self.encoder.model.config.vocab_size,
-                                                       init_factor=self.equation.init_factor,
-                                                       debug=False)
-        tie_lm_head_with_embed(self.explanation_pghead.generation_dist, self.explanation.embeddings.word_embeddings)
+        ### Need to add a new module that includes kw_linear and concats the keyword embeddings with equations and prompt
+
+        # Head for predicting mwp
+        self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
+                                                vocab_size=self.encoder.model.config.vocab_size,
+                                                init_factor=self.equation.init_factor,
+                                                debug=False)
+        
+        # MUST UNCOMMENT AFTER THE MODULE IS CREATED!!!!!
+        #tie_lm_head_with_embed(self.mwp_pghead.generation_dist, self.kw_model.embeddings.word_embeddings)
 
         # Variable counts (as regression problem)
         self.var_count_expand = torch.nn.Linear(self.equation.hidden_dim, self.equation.intermediate_dim)
@@ -42,62 +46,36 @@ class MathGenerator(EPT):
         init_weights(self.var_count_expand, self.equation.init_factor)
         init_weights(self.var_count_predict, self.equation.init_factor)
 
-        self._what_is = self.explanation.tokenizer.encode('what is ?', add_special_tokens=False)
-        self._is_a_number = self.explanation.tokenizer.encode('is a number.', add_special_tokens=False)
-        self._recombine_policy = self._recombine_policy_default = None
         self._rng = Generator(PCG64(1))
    
 
     @property
     def _sep_token(self) -> int:
-        return self.explanation.eos_id
+        return self.kw_model.eos_id
 
     @property
     def _cls_token(self) -> int:
-        return self.explanation.bos_id
+        return self.kw_model.bos_id
 
     @property
     def _pad_token(self) -> int:
-        return self.explanation.pad_id
+        return self.kw_model.pad_id
 
     @property
     def _mask_token(self) -> int:
-        return self.explanation.mask_id
+        return self.kw_model.mask_id
 
     @property
     def _shuffle_on_training(self) -> bool:
-        return self.config[MDL_EXPLANATION].get(MDL_X_SHUFFLE_ON_TRAIN, True)
+        return self.config[MDL_KEYWORD].get(MDL_K_SHUFFLE_ON_TRAIN, True)
 
 
     def inter_values(self, type: str, is_log: bool=True) -> torch.Tensor:
-        scores = torch.stack(self.explanation_pghead.intermediate_values[type])
+        scores = torch.stack(self.mwp_pghead.intermediate_values[type])
         if is_log:
             return scores.exp()
         else:
             return scores
-    
-
-    def _get_recombine_policy(self, size: int) -> List[Tuple[bool, bool]]:
-        policy = self._recombine_policy
-        if policy == MDL_X_R_BOTH:
-            # Return (text, reconstructed)
-            return [(True, True)] * size
-        if policy == MDL_X_R_COMP:
-            # Ensuring Comprehensiveness requires always using the problem text
-            return [(True, False)] * size
-        if policy == MDL_X_R_SUFF:
-            # Ensuring Sufficiency requires always using the reconstructed text
-            return [(False, True)] * size
-        # Randomized policy (training only)
-        if self.training:
-            return [(r < policy, r >= policy)
-                    for r in torch.rand(size).tolist()]
-        else:
-            return [(False, True)] * size
-
-    def _predict_var_count(self, encoded: Encoded, **kwargs) -> torch.Tensor:
-        # Value should be at least 1.0
-        return self.var_count_predict(self.var_count_expand(encoded.vector[:, 0]).relu())
 
     def _equation_for_train(self, predict_last: bool = False,
                             **kwargs) -> Tuple[tuple, EquationPrediction]:
@@ -109,8 +87,8 @@ class MathGenerator(EPT):
         # Exclude NEW_VAR operator
         return super()._equation_for_eval(**kwargs, excluded_operators={OPR_NEW_VAR_ID})
 
-    def _decode_explanation(self, **kwargs) -> Tuple[Encoded, Encoded, tuple, int]:
-        return self.explanation.forward(**kwargs)
+    def get_keywords(self, **kwargs) -> Tuple[Encoded, Encoded, tuple, int]:
+        return self.kw_model.forward(**kwargs)
 
     def _explanation_for_train(self, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction]]:
         if 'cached' in kwargs and kwargs['cached'] is not None:
@@ -120,6 +98,11 @@ class MathGenerator(EPT):
             head_cache = cached[-1][0]
         else:
             head_cache = None
+
+        # Select keywords and return embeddings
+        kw_emb, kw_logits = self.get_keywords(**kwargs)
+
+        ### concat kw_emb and equation embedding ###
 
         # out: [B,D]
         expl_enc, expl_emb, key_value_cache, prefix_len = self._decode_explanation(**kwargs)
@@ -138,6 +121,32 @@ class MathGenerator(EPT):
                 key_value_cache = key_value_cache + (head_cache,)
 
             return expl_enc, key_value_cache, Prediction(predicted)
+    
+    def _explanation_batched_for_train(self, text: Optional[Encoded], text_label: Label,
+                                       keywords: List[Label], target: List[Label],
+                                       no_pred: bool = False) -> Tuple[List[Encoded], List[Prediction]]:
+        encoded = []
+        predictions = []
+
+        for b, _ in enumerate(target):
+            # expl_b: [N, D]
+            keywords_b = keywords[b]  # [N, T]
+            keyword_sz = keywords_b.shape[0]
+
+            text_b = text[b:b + 1].repeat(keyword_sz) if text is not None else None  # [1, S]
+            text_label_b = text_label[b:b + 1].repeat(keyword_sz)  # [1, S]
+
+            kw_enc, _, mwp_pred = \
+                self._explanation_for_train(keywords=keywords_b, text_label=text_label_b,
+                                            target=text_b, no_pred=no_pred)
+                # self._explanation_for_train(text=text_b, text_label=text_label_b, expl_label=num_snippet_b,
+                #                             target=expl_b, no_pred=no_pred)
+
+            encoded.append(kw_enc)
+            predictions.append(mwp_pred)
+
+        # Return encoded B-List of [N, D] and prediction B-List of [N, D]
+        return encoded, predictions
 
     def _explanation_for_eval(self, max_len: int = EXPL_MAX, beam_size: int = 3, **kwargs) -> List[Label]:
         assert 'text' in kwargs
@@ -235,72 +244,26 @@ class MathGenerator(EPT):
 
             return explanations
 
-    def _explanation_batched_for_train(self, text: Optional[Encoded], text_label: Label,
-                                       expl_label: List[Label], target: List[Label],
-                                       no_pred: bool = False) -> Tuple[List[Encoded], List[Prediction]]:
-        encoded = []
-        predictions = []
+    def _encode(self, text: Text) -> Tuple[Encoded, Encoded]:
+        text_vec, num_enc =self.encoder(text)
+        kw_vec = self.kw_model(text)
+        return text_vec, num_enc, kw_vec
 
-        for b, expl_b in enumerate(target):
-            # expl_b: [N, D]
-            num_snippet_b = expl_label[b]  # [N, T]
-            num_sz = num_snippet_b.shape[0]
+    def encode_text(self, text: Text) -> dict:
+        text_vec, num_enc, kw_vec = self._encode(text.to(self.device))
+        return dict(_text=text_vec, _keyword=kw_vec, _number=num_enc)
 
-            text_b = text[b:b + 1].repeat(num_sz) if text is not None else None  # [1, S]
-            text_label_b = text_label[b:b + 1].repeat(num_sz)  # [1, S]
-
-            expl_enc, _, expl_pred = \
-                self._explanation_for_train(text=text_b, text_label=text_label_b, expl_label=num_snippet_b,
-                                            target=expl_b, no_pred=no_pred)
-
-            encoded.append(expl_enc)
-            predictions.append(expl_pred)
-
-        # Return encoded B-List of [N, D] and prediction B-List of [N, D]
-        return encoded, predictions
-
-    def set_recombine_policy(self, use_text_prob: float = None):
-        if use_text_prob is None:
-            self._recombine_policy = self._recombine_policy_default
-        else:
-            assert use_text_prob == MDL_X_R_BOTH or 0 <= use_text_prob <= 1
-            self._recombine_policy = use_text_prob
-
-    def encode_text_step101(self, text: Text) -> dict:
-        text_vec, num_enc = self._encode(text.to(self.device))
-        return dict(_text=text_vec, _number=num_enc)
-
-    def predict_varcount_step102(self, _text: Encoded = None, _var_lengths: List[int] = None,
-                                 dont_generate_expl: bool = False, **kwargs) -> dict:
-        return_value = {}
-        var_len_tensor = self._predict_var_count(_text, **kwargs)
-        if self.training:
-            return_value['var_len'] = Prediction(logsoftmax(var_len_tensor))  # [B, |V|]
-            # Index should begin from 0
-            return_value['var_len_tgt'] = Label(torch.tensor(_var_lengths, device=self.device, dtype=torch.long) - 1)
-        elif not dont_generate_expl:
-            # Override var_len_list variable with predicted result
-            return_value['_var_lengths'] = [int(max_id) + 1  # Var count should begin with 1
-                                            for max_id in var_len_tensor.argmax(dim=-1).tolist()]
-        return return_value
-
-    def generate_expl_step103(self, text: Text, beam: int = 3,
-                              _num_expl: List[Label] = None, _var_expl: List[Label] = None, _text: Encoded = None,
-                              _var_lengths: List[int] = None, enforce_training: bool = False, **kwargs) -> dict:
+    def generate_expl_step103(self, text: Text, beam: int = 3, _text: Encoded = None, enforce_training: bool = False, **kwargs) -> dict:
         return_value = {}
 
         if self.training or enforce_training:
             # Case: Training
-            # 1-3-1. Prepare argument for generating explanation
+            # 1-3-1. Prepare argument for generating math word problem
             generate_kwargs = {
-                'var': {
+                'keyword': {
                     'expl_label': [self.explanation.var_labels[:v].to(self.device)
                                    for v in _var_lengths],
                     'target': move_to(_var_expl, self.device)
-                },
-                'num': {
-                    'expl_label': move_to(text.snippets, self.device),
-                    'target': move_to(_num_expl, self.device)
                 }
             }
 
@@ -315,13 +278,9 @@ class MathGenerator(EPT):
             # Case: Evaluation & generation required (by default)
             # 1-3-1. Prepare argument for generating explanation
             generate_kwargs = {
-                'var': {
+                'keyword': {
                     'expl_label': [self.explanation.var_labels[:v].to(self.device)
                                    for v in _var_lengths],
-                    'beam_size': beam
-                },
-                'num': {
-                    'expl_label': text.snippets,
                     'beam_size': beam
                 }
             }
@@ -445,9 +404,10 @@ class MathGenerator(EPT):
         return return_value
 
     def forward_prompt(self, text: Text, keyword: List[Label] = None,
-                            dont_generate_expl: bool = False, beam_expl: int = 3, **kwargs) -> Tuple[dict, dict]:
+                       dont_generate_expl: bool = False, beam_expl: int = 3, **kwargs) -> Tuple[dict, dict]:
         # (1-0) Prepare kwargs
-        keywords = text.keywords
+        return_value = {}
+        return_value.update(self.encode_text(text))
         # if self.training:
         #     num_expl = [d.number_for_train for d in explanation]
         #     var_expl = [d.variable_for_train for d in explanation]
@@ -484,15 +444,15 @@ class MathGenerator(EPT):
                          _num_expl: List[Label] = None, _var_expl: List[Label] = None,
                          **kwargs) -> Tuple[dict, dict]:
 
-        # (2-1) Concat text and explanation
+        # (2-1) Generate New Math Word Problem
         new_text = self.reconstruct_problem_step201(text, _num_expl, _var_expl)
 
-        # (2-2) Compute explanation vector (Re-use step 1-1)
+        # (2-2) Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
         # (2-3) Read/Generate Equation
         # rsk: The length of numbers and variables should be changed so that they come directly from dataset
-        number_len = [d.shape[0] for d in _num_expl] 
+        number_len = [d.shape[0] for d in _num_expl]
         variable_len = [d.shape[0] for d in _var_expl]
         return_value = self.generate_eqn_step203(equation=equation, number_len=number_len,
                                                  variable_len=variable_len, beam=beam,
