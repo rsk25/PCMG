@@ -37,9 +37,8 @@ class KeywordSelector(CheckpointingModule):
 
         # Copy encoder and embeddings
         self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
-        self.embedding = torch.nn.Embedding(
-            model.embeddings.word_embeddings.weight ### Need to check if this exists
-        )
+        self.embedding = model.embeddings.word_embeddings ### Need to check if this exists
+        
         self.is_initialized = False
         self.extended_attention_mask = model.get_extended_attention_mask
         self.invert_attention_mask = model.invert_attention_mask
