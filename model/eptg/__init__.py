@@ -14,9 +14,9 @@ from common.data.base import move_to
 from model.base.util import init_weights, tie_lm_head_with_embed, logsoftmax
 from model.base.beamsearch import beam_search, EXPL_BEAM_SZ
 from model.ept import *
-from .explain import ExplanationDecoder
 from .pg_head import PointerGeneratorHead
 from .keyword_selector import KeywordSelector
+from .mwpsource_decoder import MWPSourceDecoder
 
 SWAN_OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
@@ -29,7 +29,7 @@ class MathGenerator(EPT):
         self.kw_model = KeywordSelector.create_or_load(**self.config[MDL_KEYWORD])
 
         ### Need to add a new module that includes kw_linear and concats the keyword embeddings with equations and prompt
-
+        self.mwpsource_hidden = MWPSourceDecoder.create_or_load(**self.config[MDL_KEYWORD])
         # Head for predicting mwp
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
                                                 vocab_size=self.encoder.model.config.vocab_size,
@@ -69,7 +69,6 @@ class MathGenerator(EPT):
     def _shuffle_on_training(self) -> bool:
         return self.config[MDL_KEYWORD].get(MDL_K_SHUFFLE_ON_TRAIN, True)
 
-
     def inter_values(self, type: str, is_log: bool=True) -> torch.Tensor:
         scores = torch.stack(self.mwp_pghead.intermediate_values[type])
         if is_log:
@@ -87,8 +86,11 @@ class MathGenerator(EPT):
         # Exclude NEW_VAR operator
         return super()._equation_for_eval(**kwargs, excluded_operators={OPR_NEW_VAR_ID})
 
-    def get_keywords(self, **kwargs) -> Tuple[Encoded, Encoded, tuple, int]:
+    def _get_keywords(self, **kwargs) -> Tuple[torch.LongTensor, torch.LongTensor]:
         return self.kw_model.forward(**kwargs)
+
+    def _decode_mwp_source(self, **kwargs) -> Tuple[Encoded, Encoded, tuple, int]:
+        return self.mwpsource_hidden.forward(**kwargs)
 
     def _explanation_for_train(self, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction]]:
         if 'cached' in kwargs and kwargs['cached'] is not None:
@@ -99,28 +101,28 @@ class MathGenerator(EPT):
         else:
             head_cache = None
 
-        # Select keywords and return embeddings
-        kw_emb, kw_logits = self.get_keywords(**kwargs)
+        # Select keywords from the candidates and return embeddings
+        kw_emb, kw_logits, selected_kw = self._get_keywords(**kwargs)
 
         ### concat kw_emb and equation embedding ###
-
+        kwargs['keywords'] = selected_kw
         # out: [B,D]
-        expl_enc, expl_emb, key_value_cache, prefix_len = self._decode_explanation(**kwargs)
+        mwp_enc, mwp_emb, key_value_cache, prefix_len = self._decode_mwp_source(**kwargs)
 
         if kwargs.get('no_pred', False):
-            return expl_enc, key_value_cache, None
+            return mwp_enc, key_value_cache, None
         else:
             predicted, head_cache = \
                 self.explanation_pghead.forward(text=kwargs['text'], text_label=kwargs['text_label'],
                                                 prev_key=head_cache,
-                                                pad_value=self._pad_token, decoded=expl_enc[:, prefix_len:],
-                                                decoder_embedding=expl_emb[:, prefix_len:])
+                                                pad_value=self._pad_token, decoded=mwp_enc[:, prefix_len:],
+                                                decoder_embedding=mwp_emb[:, prefix_len:])
 
             # Append cache
             if key_value_cache is not None:
                 key_value_cache = key_value_cache + (head_cache,)
 
-            return expl_enc, key_value_cache, Prediction(predicted)
+            return mwp_enc, key_value_cache, Prediction(predicted)
     
     def _explanation_batched_for_train(self, text: Optional[Encoded], text_label: Label,
                                        keywords: List[Label], target: List[Label],
@@ -130,7 +132,7 @@ class MathGenerator(EPT):
 
         for b, _ in enumerate(target):
             # expl_b: [N, D]
-            keywords_b = keywords[b]  # [N, T]
+            keywords_b = keywords[b]  # [N, T] : keyword candidates
             keyword_sz = keywords_b.shape[0]
 
             text_b = text[b:b + 1].repeat(keyword_sz) if text is not None else None  # [1, S]

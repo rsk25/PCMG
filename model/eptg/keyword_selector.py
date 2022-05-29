@@ -36,14 +36,19 @@ class KeywordSelector(CheckpointingModule):
         self.tokenizer = tokenizer
 
         # Copy encoder and embeddings
-        self.kw_linear = torch.nn.Linear(model.config.embedding_size, 1)
+        self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
         self.embedding = torch.nn.Embedding(
-            num_embeddings=model.config.vocab_size,
-            embedding_dim=model.config.embedding_size
+            model.embeddings.word_embeddings.weight ### Need to check if this exists
         )
         self.is_initialized = False
         self.extended_attention_mask = model.get_extended_attention_mask
         self.invert_attention_mask = model.invert_attention_mask
+        if hasattr(model, 'embeddings_project'):
+            self.embeddings_project = model.embeddings_project
+
+        # Register prefix for generating MWP (exclude [SEP] at the end)
+        # Shape [P]
+        self.register_buffer('_prefix_mwp_gen', torch.LongTensor(tokenizer.encode('generate:')[:-1]))
 
     @property
     def prefix_length(self) -> int:
@@ -55,11 +60,13 @@ class KeywordSelector(CheckpointingModule):
             torch.nn.init.zeros_(self.kw_linear.bias)
             self.kw_linear.weight.requires_grad=True
             self.kw_linear.bias.requires_grad=True
+            self.embedding.requires_grad=False
             self.is_initialized = True
 
 
-    def build_selector_input(self, text: Text, train: bool, drop=0):
-        self._init_kw_model(train)
+    def _select_keywords(self, text: Text, train: bool, drop=0):
+        if not self.is_initialized:
+            self._init_kw_model(train)
         kw_batch = [tk.flatten() for tk in text.keywords]
         kw_batch = [self.tokenizer.decode(kb.indices) for kb in kw_batch]
 
@@ -68,11 +75,10 @@ class KeywordSelector(CheckpointingModule):
         attn = torch.softmax(torch.mm(kw_emb_tmp, kw_emb_tmp.t()) / torch.sqrt(torch.FloatTensor([kw_emb_tmp.shape[1]]).cuda()) , dim=1) # dim = T x T
         kw_summary = (attn.unsqueeze(1).repeat(1, kw_emb_tmp.shape[1], 1) * kw_emb_tmp.unsqueeze(-1).repeat(1, 1, kw_emb_tmp.shape[0])).sum(-1) # shape = T x D
         kw_logits = self.kw_linear(kw_summary)
+        sample_soft = torch.sigmoid(kw_logits)[:,0]
         if train:
-            sample_soft = torch.sigmoid(kw_logits)[:,0]
             sample_hard = torch.distributions.bernoulli.Bernoulli(probs=sample_soft).sample()
         else:
-            sample_soft = torch.sigmoid(kw_logits)[:,0]
             sample_hard = (sample_soft > 0.5).float() * 1
 
             if drop > 0:
@@ -86,7 +92,6 @@ class KeywordSelector(CheckpointingModule):
 
         # get a vector of length kw_tok (a keyword may have more than 1 token and thus the sample vector needs to be expanded)
         new_kw = kw_batch
-        new_kw[torch.where(sample_hard==1)[0][0].item()] = new_kw[torch.where(sample_hard==1)[0][0].item()]
         new_kw_tok = []
         kw_pos = 0
         kw_idx = 0
@@ -112,16 +117,16 @@ class KeywordSelector(CheckpointingModule):
         else:
             kw_emb_masked = kw_emb[sample.bool()]
 
-        return kw_emb_masked, kw_logits
+        return kw_emb_masked, kw_logits, sample
 
 
-    def forward(self, text: Text, **kwargs) -> Tuple[Encoded, Encoded, Optional[tuple], int]:
+    def forward(self, text: Text, **kwargs) -> Tuple[torch.LongTensor, torch.LongTensor, Label]:
         # text: [B,S]
 
         # Compute keyword embedding and logits
-        kw_emb_masked, kw_logits = self.build_selector_input(text, self.training)
+        kw_emb_masked, kw_logits, selected_kw = self._select_keywords(text, self.training)
 
-        return kw_emb_masked, kw_logits
+        return kw_emb_masked, kw_logits, Label(selected_kw)
 
 
 __all__ = ['KeywordSelector']
