@@ -22,7 +22,7 @@ def _gather_number_vectors(hidden: torch.Tensor, mask: torch.Tensor) -> Encoded:
                 continue
 
             # Copy masked positions. Shape [1, H].
-            mean_vec = hidden[b, indices].mean(dim=0, keepdim=True)
+            mean_vec = hidden[b, indices].mean(dim=0, keepdim=True) # in case there are multiple indicators of the same number
             row_items.append(Encoded(mean_vec, None))
 
         # Add batched vectors. Shape [N, H].
