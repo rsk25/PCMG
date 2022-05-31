@@ -80,9 +80,10 @@ class KeywordSelector(CheckpointingModule):
         return torch.cat([prefix, vector], dim=dim)
 
     
-    def _create_prompt(self, keyword_string: str) -> Encoded:
+    def _create_prompt(self, keyword_string: str, equations: Label) -> Encoded:
         kw_ids = self._encode(keyword_string)
-        context_input = self._prepend(self._prefix_prompt, kw_ids)
+        context_tmp = self._prepend(self._prefix_prompt, kw_ids)
+        context_input = torch.cat([context_tmp, ])
         return 
 
 
