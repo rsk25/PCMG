@@ -101,9 +101,6 @@ class MathGenerator(EPT):
         else:
             head_cache = None
 
-        # Select keywords from the candidates and return embeddings
-        kw_emb, kw_logits, selected_kw = self._get_keywords(**kwargs)
-
         ### concat kw_emb and equation embedding ###
         kwargs['keywords'] = selected_kw
         # out: [B,D]
@@ -410,6 +407,7 @@ class MathGenerator(EPT):
         # (1-0) Prepare kwargs
         return_value = {}
         return_value.update(self.encode_text(text))
+
         # if self.training:
         #     num_expl = [d.number_for_train for d in explanation]
         #     var_expl = [d.variable_for_train for d in explanation]
@@ -431,8 +429,8 @@ class MathGenerator(EPT):
         #return_value.update(self.predict_varcount_step102(**return_value, dont_generate_expl=dont_generate_expl))
 
         # (1-3) Generate keywords
-        # if self.training or not dont_generate_expl:
-        #     return_value.update(self.generate_expl_step103(text, beam=beam_expl, **return_value))
+        if self.training or not dont_generate_expl:
+            return_value.update(self.generate_expl_step103(text, beam=beam_expl, **return_value))
 
         # Separate internal outputs
         external = {}
