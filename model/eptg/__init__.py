@@ -15,8 +15,7 @@ from model.base.util import init_weights, tie_lm_head_with_embed, logsoftmax
 from model.base.beamsearch import beam_search, EXPL_BEAM_SZ
 from model.ept import *
 from .pg_head import PointerGeneratorHead
-from .keyword_selector import KeywordSelector
-from .mwpsource_decoder import MWPSourceDecoder
+from .kw_eq_decoder import KeywordEquationDecoder
 
 SWAN_OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
@@ -25,11 +24,8 @@ class MathGenerator(EPT):
     def __init__(self, **config):
         super().__init__(**config)
 
-        # Keyword Selection model
-        self.kw_model = KeywordSelector.create_or_load(**self.config[MDL_KEYWORD])
-
         ### Need to add a new module that includes kw_linear and concats the keyword embeddings with equations and prompt
-        self.mwpsource_hidden = MWPSourceDecoder.create_or_load(**self.config[MDL_KEYWORD])
+        self.mwpsource_hidden = KeywordEquationDecoder.create_or_load(**self.config[MDL_KEYWORD])
         # Head for predicting mwp
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
                                                 vocab_size=self.encoder.model.config.vocab_size,
