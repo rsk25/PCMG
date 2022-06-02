@@ -1,11 +1,11 @@
 from model.base.chkpt import CheckpointingModule
 from .ept import EPT, MODEL_CLS
-from .eptg import MathGenerator
+from .eptg import MathWordProblemGenerator
 from .swan import *
 
 MODELS = {
     'EPT': EPT,
-    'EPT-G': MathGenerator
+    'EPT-G': MathWordProblemGenerator
 }
 
 
