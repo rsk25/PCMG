@@ -46,19 +46,19 @@ class MathWordProblemGenerator(EPT):
 
     @property
     def _sep_token(self) -> int:
-        return self.kw_model.eos_id
+        return self.mwpsource_hidden.eos_id
 
     @property
     def _cls_token(self) -> int:
-        return self.kw_model.bos_id
+        return self.mwpsource_hidden.bos_id
 
     @property
     def _pad_token(self) -> int:
-        return self.kw_model.pad_id
+        return self.mwpsource_hidden.pad_id
 
     @property
     def _mask_token(self) -> int:
-        return self.kw_model.mask_id
+        return self.mwpsource_hidden.mask_id
 
     @property
     def _shuffle_on_training(self) -> bool:
@@ -87,7 +87,6 @@ class MathWordProblemGenerator(EPT):
     def _mwp_for_train(self, text: Text,
                             text_enc: Optional[Encoded], 
                             text_label: Label, 
-                            keyword_candidates: List[Label],
                             no_pred: bool = False, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction]]:
         if 'cached' in kwargs and kwargs['cached'] is not None:
             # Reset cached keys
@@ -98,16 +97,20 @@ class MathWordProblemGenerator(EPT):
             head_cache = None
 
         # out: [B,D]
-        mwp_enc, mwp_emb, key_value_cache, prefix_len = self._decode_mwp_source(text= text, **kwargs)
+        mwp_enc, mwp_emb, key_value_cache, prefix_len = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
         else:
             predicted, head_cache = \
-                self.explanation_pghead.forward(text=text_enc, text_label=text_label,
-                                                prev_key=head_cache,
-                                                pad_value=self._pad_token, decoded=mwp_enc[:, prefix_len:],
-                                                decoder_embedding=mwp_emb[:, prefix_len:])
+                self.mwp_pghead.forward(
+                    text=text_enc, 
+                    text_label=text_label,
+                    decoded=mwp_enc[:, prefix_len:],
+                    decoder_embedding=mwp_emb[:, prefix_len:],
+                    prev_key=head_cache,
+                    pad_value=self._pad_token
+                )
 
             # Append cache
             if key_value_cache is not None:
@@ -253,7 +256,7 @@ class MathWordProblemGenerator(EPT):
             # Case: Training
 
             # 1-3-2. Run prediction for each target
-            enc, _, pred = self._mwp_for_train(text=_text, text_label=text.tokens, keyword_candidates= text.keywords)
+            enc, _, pred = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
             return_value.update({
                 'mwp': pred,
                 '_mwp_enc': enc
@@ -395,7 +398,7 @@ class MathWordProblemGenerator(EPT):
                          **kwargs) -> Tuple[dict, dict]:
 
         # (2-1) Generate New Math Word Problem
-        new_text = self.reconstruct_problem_step201(text, _num_expl, _var_expl)
+        new_text = self.reconstruct_problem_step201(text=kwargs['mwp'])
 
         # (2-2) Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))

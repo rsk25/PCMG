@@ -38,7 +38,7 @@ class KeywordEquationDecoder(CheckpointingModule):
 
         # Copy encoder and embeddings
         self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
-        self.embedding = model.embeddings
+        self.embeddings = model.embeddings
         
         self.is_initialized = False
         self.extended_attention_mask = model.get_extended_attention_mask
@@ -46,7 +46,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         if hasattr(model, 'embeddings_project'):
             self.embeddings_project = model.embeddings_project
         
-        # Register prefix for explaining number (exclude [SEP] at the end)
+        # Register prefix for generating MWP (exclude [SEP] at the end)
         # Shape [P]
         self.register_buffer('_prefix_prompt', torch.LongTensor(tokenizer.encode('generate:')[:-1]))
 
@@ -58,7 +58,7 @@ class KeywordEquationDecoder(CheckpointingModule):
             torch.nn.init.zeros_(self.kw_linear.bias)
             self.kw_linear.weight.requires_grad=True
             self.kw_linear.bias.requires_grad=True
-            self.embedding.requires_grad=False
+            self.embeddings.requires_grad=False
             self.is_initialized = True
 
 
@@ -66,10 +66,10 @@ class KeywordEquationDecoder(CheckpointingModule):
         return self.tokenizer.encode(string, add_special_tokens=False)
 
 
-    def _select_keywords(self, kwb: List[str], train: bool, drop=0) -> Tuple(torch.Tensor, str):
+    def _select_keywords(self, kwb: List[str], train: bool, drop=0) -> Tuple[torch.Tensor, str]:
         kwb_split = kwb.split()
         # kw_emb_tmp: T x Emb
-        kw_emb_tmp = torch.stack([self.embedding.word_embeddings(torch.LongTensor(self._encode(kw_str)).cuda()).sum(0) for kw_str in kwb_split]) # sum the subword embedding to get a single embedding for a word with subwords
+        kw_emb_tmp = torch.stack([self.embeddings.word_embeddings(torch.LongTensor(self._encode(kw_str)).cuda()).sum(0) for kw_str in kwb_split]) # sum the subword embedding to get a single embedding for a word with subwords
         # attn: T x T
         attn = torch.softmax(torch.mm(kw_emb_tmp, kw_emb_tmp.t()) / torch.sqrt(torch.FloatTensor([kw_emb_tmp.shape[1]]).cuda()) , dim=1) 
         # kw_summary: T x Emb
@@ -125,7 +125,7 @@ class KeywordEquationDecoder(CheckpointingModule):
 
     def _create_input_ids(self, keywords: Label, equations: Label, target: Label, prefix: Label = None) -> Tuple[Label, int]:
         # Concatenate prefix and keyword & equation labels.  [P] + [B, T] + [B, Eq] -> [B, P+T+Eq]
-        tmp = keywords.prepend(self._prefix_number)
+        tmp = keywords.prepend(self._prefix_prompt)
         context_input = Label.concat(tmp, equations, dim=1)
         context_len = context_input.shape[-1]
         # Extend target with prefix. [B, D] -> [B, P+T+D]
@@ -144,10 +144,11 @@ class KeywordEquationDecoder(CheckpointingModule):
         # compute samples
         for kwb in kw_batch:
             kw_logits, selected_kws = self._select_keywords(kwb, train)
-            selected_kws_batch.append(selected_kws)
-        selected_kws_batch = Label.from_list(selected_kws_list)
+            ### Need to collect kw_logits for loss calculation
+            selected_kws_list.append(selected_kws)
+        selected_kws_batch = Label.from_list(selected_kws_list).to(text.device)
         ### Add prompt and Equation here
-        input_ids, context_len = self._create_input_ids(selected_kws_batch, text.equations, text.tokens)
+        input_ids, context_len = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(input_ids.device)
 
@@ -200,7 +201,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         return encoded, next_key_value
 
 
-    def forward(self, text: Text, **kwargs) -> Tuple[torch.LongTensor, torch.LongTensor, Label]:
+    def forward(self, text: Text, text_enc: Encoded, **kwargs) -> Tuple[Encoded, Encoded, Optional[tuple], int]:
         # text: [B,S]
         # target: [B,D]
         # out: [B,D]
@@ -213,7 +214,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         word_emb, full_emb, prefix_len = self.build_input(text, self.training)
 
         # Compute hidden state vectors
-        encoded, cached = self.build_decoder_context(full_emb, text, cached)
+        encoded, cached = self.build_context(full_emb, text_enc, cached)
 
         if is_cached:
             # Cached: we need only the last token (encoded has already been cut)
