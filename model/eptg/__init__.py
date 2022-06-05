@@ -30,8 +30,7 @@ class MathWordProblemGenerator(EPT):
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
                                                 embed_dim=self.mwpsource_hidden.embed_dim,
                                                 vocab_size=self.encoder.model.config.vocab_size,
-                                                init_factor=self.equation.init_factor,
-                                                debug=False)
+                                                init_factor=self.equation.init_factor)
         
         tie_lm_head_with_embed(self.mwp_pghead.generation_dist, self.mwpsource_hidden.embeddings.word_embeddings)
 
