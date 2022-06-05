@@ -39,6 +39,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         # Copy encoder and embeddings
         self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
         self.embeddings = model.embeddings
+        self.embed_dim = model.config.embedding_size
         
         self.is_initialized = False
         self.extended_attention_mask = model.get_extended_attention_mask

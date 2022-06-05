@@ -28,6 +28,7 @@ class MathWordProblemGenerator(EPT):
         self.mwpsource_hidden = KeywordEquationDecoder.create_or_load(**self.config[MDL_KEYWORD])
         # Head for predicting mwp
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
+                                                embed_dim=self.mwpsource_hidden.embed_dim,
                                                 vocab_size=self.encoder.model.config.vocab_size,
                                                 init_factor=self.equation.init_factor,
                                                 debug=False)
