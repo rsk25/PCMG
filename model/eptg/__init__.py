@@ -349,7 +349,7 @@ class MathWordProblemGenerator(EPT):
             return Text(raw=None, tokens=Label.build_batch(*concat_labels), numbers=Label.build_batch(*concat_numbers),
                         snippets=None)
 
-    def generate_eqn_step203(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
+    def generate_eqn(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
@@ -407,7 +407,7 @@ class MathWordProblemGenerator(EPT):
         # rsk: The length of numbers and variables should be changed so that they come directly from dataset
         number_len = [d.shape[0] for d in _num_expl]
         variable_len = [d.shape[0] for d in _var_expl]
-        return_value = self.generate_eqn_step203(equation=equation, number_len=number_len,
+        return_value = self.generate_eqn(equation=equation, number_len=number_len,
                                                  variable_len=variable_len, beam=beam,
                                                  **encode_result)
 
