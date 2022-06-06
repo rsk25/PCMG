@@ -368,7 +368,7 @@ class Equation(TypeTensorBatchable, TypeSelectable):
                         [Label.from_list(operand_j) for operand_j in new_operands])
 
     def treat_variables_as_defined(self, number_max: list) -> 'Equation':
-        # We expect calling this method after construct a batch.
+        # We expect calling this method after constructing a batch.
         assert self.is_batched
 
         batch_sz = self.shape[0]
@@ -391,7 +391,7 @@ class Equation(TypeTensorBatchable, TypeSelectable):
         return Equation.build_batch(*new_batch).to(self.device)
 
     def treat_text_as_prev_result(self, number_label: Label):
-        # We expect calling this method after construct a batch.
+        # We expect calling this method after constructing a batch.
         assert self.is_batched
 
         batch_sz = self.shape[0]
@@ -415,7 +415,7 @@ class Equation(TypeTensorBatchable, TypeSelectable):
         return Equation.build_batch(*new_batch).to(self.device)
 
     def restore_variables(self, number_max: list, variable_max: list) -> 'Equation':
-        # We expect calling this method after construct a batch.
+        # We expect calling this method after constructing a batch.
         assert self.is_batched
 
         batch_sz = self.shape[0]
@@ -444,7 +444,7 @@ class Equation(TypeTensorBatchable, TypeSelectable):
         return Equation.build_batch(*new_batch).to(self.device)
 
     def restore_numbers(self, number_label: Label):
-        # We expect calling this method after construct a batch.
+        # We expect calling this method after constructing a batch.
         assert self.is_batched
 
         batch_sz = self.shape[0]
