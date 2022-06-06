@@ -148,34 +148,23 @@ class MathWordProblemGenerator(EPT):
     def _mwp_for_eval(self, max_len: int = EXPL_MAX, beam_size: int = 3, **kwargs) -> List[Label]:
         assert 'text' in kwargs
         # text: [B,S]
-        text: Encoded = kwargs['text']
+        text: Encoded = kwargs['text_enc']
         # text_label: [B,S]
         text_label: Label = kwargs['text_label']
-        # expl_label: B-list of [N,X]
-        expl_label: List[Label] = kwargs['expl_label']
-
-        batch_sz = len(expl_label)
-
-        # out: [B,N,D]
-        # beam: [B,N,M,D]. <-- [BN, M, D]
-        lengths = [item.shape[0] for item in expl_label]
+        ### Need keywords, here. ###
+        keywords: Label = kwargs['keywords']
 
         def initialize_fn():
             # Initially we start with a single beam.
-            flattened_items = []
-            for b in range(batch_sz):
-                text_b = text[b:b + 1] if text is not None else None  # [1, S]
-                text_label_b = text_label[b:b + 1]  # [1, S]
-
-                for n in range(lengths[b]):
-                    expl_for_bn = expl_label[b][n:n + 1]
-                    flattened_items.append(dict(text=text_b,  # [1, S]
-                                                text_label=text_label_b,  # [1, S]
-                                                expl_label=expl_for_bn,  # [1, 1] or [1, T]
-                                                target=Label.from_list([[self._sep_token]])))  # [M=1, T=1]
-
-            beamscores = torch.zeros((len(flattened_items), 1))
-            return flattened_items, beamscores
+            batch_sz = text.shape[0] if text is not None else text_label.shape[0]
+            beamscores = torch.zeros((len(batch_sz), 1))
+            return [dict(text=text[b:b + 1] if text is not None else None,  # [1, S]
+                         keywords=keywords[b:b + 1] if keywords is not None else None, # [1, S]
+                         text_label=text_label[b:b + 1] if text_label is not None else None,  # [1, S]
+                         target=Equation.get_generation_base(),  # [1, T=1]
+                         cached=None
+                         )
+                    for b in range(batch_sz)], beamscores
 
         def compute_next_score_of_beam(seq_len: int, beams: dict, k: int):
             # Shape [M, T]
@@ -266,7 +255,7 @@ class MathWordProblemGenerator(EPT):
             
             # 1-3-2. Run prediction for each target
             print(f'generating MWP..\n')
-            mwp = self._mwp_for_eval(text=text, text_enc=_text, text_label=text.tokens, keyword_candidates= text.keywords)
+            mwp = self._mwp_for_eval(text=text, text_enc=_text, text_label=text.tokens, keywords= text.keywords)
             return_value.update({
                 'mwp': mwp,
                 '_mwp_enc': mwp  #: Copy for internal use
