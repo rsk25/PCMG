@@ -154,9 +154,10 @@ class MathWordProblemGenerator(EPT):
         ### Need keywords, here. ###
         keywords: Label = kwargs['keywords']
 
+        batch_sz = text.shape[0] if text is not None else text_label.shape[0]
+
         def initialize_fn():
             # Initially we start with a single beam.
-            batch_sz = text.shape[0] if text is not None else text_label.shape[0]
             beamscores = torch.zeros((len(batch_sz), 1))
             return [dict(text=text[b:b + 1] if text is not None else None,  # [1, S]
                          keywords=keywords[b:b + 1] if keywords is not None else None, # [1, S]
@@ -168,9 +169,9 @@ class MathWordProblemGenerator(EPT):
 
         def compute_next_score_of_beam(seq_len: int, beams: dict, k: int):
             # Shape [M, T]
-            _, kv_cache, expl_pred = self._mwp_batched_for_train(**move_to(beams, self.device))
+            _, kv_cache, mwp_pred = self._mwp_batched_for_train(**move_to(beams, self.device))
             # Shape [M]
-            last_pred: Prediction = expl_pred[:, -1].to('cpu')
+            last_pred: Prediction = mwp_pred[:, -1].to('cpu')
             # Shape [M, T]
             target: Label = beams['target']
             # Assign cache
@@ -192,7 +193,7 @@ class MathWordProblemGenerator(EPT):
             return scores
 
         def concat_next_fn(prev_beams: dict, beam_selected: List[int], list_of_next: dict):
-            if prev_beams['expl_label'].shape[0] == 1:
+            if prev_beams['target'].shape[0] == 1:
                 # Before expanding beams.
                 beamsz = len(beam_selected)
                 for key in prev_beams:
@@ -218,17 +219,17 @@ class MathWordProblemGenerator(EPT):
                                         concat_next_fn, is_all_finished, max_len, beam_size)
 
             # Select top-scored beam
-            explanations = []
-            for b, len_b in enumerate(lengths):
+            new_mwps = []
+            for b, len_b in enumerate(batch_sz):
                 if len_b > 0:
-                    explanations.append(Label.build_batch(*[item['target'][0]
+                    new_mwps.append(Label.build_batch(*[item['target'][0]
                                                             for item in batched_beams[:len_b]]))
                     batched_beams = batched_beams[len_b:]
                 else:
                     # Add empty explanation, [0, 0]
-                    explanations.append(Label(torch.full((0, 0), fill_value=PAD_ID, dtype=torch.long)))
+                    new_mwps.append(Label(torch.full((0, 0), fill_value=PAD_ID, dtype=torch.long)))
 
-            return explanations
+            return new_mwps
 
     def _encode(self, text: Text) -> Tuple[Encoded, Encoded]:
         text_vec, num_enc =self.encoder(text)
