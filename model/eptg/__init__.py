@@ -17,7 +17,7 @@ from model.ept import *
 from .pg_head import PointerGeneratorHead
 from .kw_eq_decoder import KeywordEquationDecoder
 
-SWAN_OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
+_OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
 
 class MathWordProblemGenerator(EPT):
@@ -74,7 +74,7 @@ class MathWordProblemGenerator(EPT):
     def _equation_for_train(self, predict_last: bool = False,
                             **kwargs) -> Tuple[tuple, EquationPrediction]:
         # Exclude NEW_VAR operator
-        return super()._equation_for_train(predict_last=predict_last, operator_excluded=SWAN_OPERATOR_EXCLUDED,
+        return super()._equation_for_train(predict_last=predict_last, operator_excluded=_OPERATOR_EXCLUDED,
                                            **kwargs)
 
     def _equation_for_eval(self, **kwargs) -> Equation:
@@ -274,80 +274,6 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
 
-    def reconstruct_problem_step201(self, text: Text, num_expl: List[Label], var_expl: List[Label], **kwargs) -> Text:
-        with torch.no_grad():
-            batch_sz = len(num_expl)
-            concat_labels = []
-            concat_numbers = []
-
-            for b, (use_text, use_recon) in enumerate(self._get_recombine_policy(batch_sz)):
-                assert use_text or use_recon
-                text_b = text[b].tokens.indices
-                textnum_b = text[b].numbers.indices
-                num_max = num_expl[b].shape[0]
-
-                if use_text:
-                    concat_b = [tok for tok in text_b.tolist() if tok != PAD_ID]
-                    if use_recon:
-                        numpos_b = [PAD_ID] * len(concat_b)
-                    else:
-                        numpos_b = [tok for tok in textnum_b.tolist()][:len(concat_b)]
-                else:
-                    concat_b = [self._cls_token]
-                    numpos_b = [PAD_ID]
-
-                if use_recon:
-                    expl_b = num_expl[b].indices.tolist() + var_expl[b].indices.tolist()
-                    concat_set_b = []
-                    numpos_set_b = []
-                    for nid, expl_bn in enumerate(expl_b):
-                        expl_bn = [tok for tok in expl_bn if tok not in self.explanation.tokens_ignored]
-                        if expl_bn == self.explanation.empty_sequence:
-                            continue
-
-                        num_bn = [PAD_ID] * len(expl_bn)
-
-                        if nid < num_max:
-                            expl_bn += self._is_a_number
-                            num_bn += [PAD_ID] * len(self._is_a_number)
-                            num_bn[-2] = nid
-
-                            num_tokens = text_b.masked_select(textnum_b.eq(nid)).tolist()
-                            expl_bn = expl_bn[:-1] + num_tokens + expl_bn[-1:]
-                            num_bn = num_bn[:-1] + ([nid] * len(num_tokens)) + num_bn[-1:]
-                        else:
-                            expl_bn = self._what_is[:-1] + expl_bn + self._what_is[-1:]
-                            num_bn = [PAD_ID] * len(expl_bn)
-                            num_bn[0] = nid
-
-                        concat_set_b.append(expl_bn)
-                        numpos_set_b.append(num_bn)
-
-                        assert len(concat_set_b) == len(numpos_set_b) > 0
-                        assert nid in num_bn
-
-                    # Concatenate all explanations
-                    concat_b += sum(concat_set_b, [])
-                    numpos_b += sum(numpos_set_b, [])
-                else:
-                    # We should add variables as SWAN treats variables as written numbers.
-                    for vid in range(var_expl[b].shape[0]):
-                        var_text = self.explanation.var_labels[vid].indices.tolist()
-                        concat_b += var_text
-                        numpos_b += [vid + num_max] * len(var_text)
-
-                concat_b.append(self._sep_token)
-                numpos_b.append(PAD_ID)
-
-                if len(concat_b) > 500:
-                    concat_b = concat_b[-500:]
-                    numpos_b = numpos_b[-500:]
-
-                concat_labels.append(Label.from_list(concat_b))
-                concat_numbers.append(Label.from_list(numpos_b))
-
-            return Text(raw=None, tokens=Label.build_batch(*concat_labels), numbers=Label.build_batch(*concat_numbers),
-                        snippets=None)
 
     def generate_eqn(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
@@ -376,14 +302,14 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
 
-    def forward_mwp(self, text: Text, dont_generate_mwp: bool = False, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
+    def forward_mwp(self, text: Text, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
         # Prepare kwargs
         return_value = {}
         
         return_value.update(self.encode_text_step101(text))
+        
         # Generate math word problem
-        if self.training or not dont_generate_mwp:
-            return_value.update(self.generate_mwp_step102(text, beam=beam_mwp, **return_value))
+        return_value.update(self.generate_mwp_step102(text, beam=beam_mwp, **return_value))
 
         # Separate internal outputs
         external = {}
@@ -394,22 +320,16 @@ class MathWordProblemGenerator(EPT):
         return external, return_value
 
     def forward_equation(self, text: Text, equation: Equation = None, beam: int = 3,
-                         _num_expl: List[Label] = None, _var_expl: List[Label] = None,
                          **kwargs) -> Tuple[dict, dict]:
 
-        # (2-1) Generate New Math Word Problem
-        new_text = self.reconstruct_problem_step201(text=kwargs['mwp'])
+        # (2-1) New Math Word Problem
+        new_text = kwargs['mwp']
 
         # (2-2) Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
         # (2-3) Read/Generate Equation
-        # rsk: The length of numbers and variables should be changed so that they come directly from dataset
-        number_len = [d.shape[0] for d in _num_expl]
-        variable_len = [d.shape[0] for d in _var_expl]
-        return_value = self.generate_eqn(equation=equation, number_len=number_len,
-                                                 variable_len=variable_len, beam=beam,
-                                                 **encode_result)
+        return_value = self.generate_eqn()
 
         # Separate internal outputs
         external = {}
