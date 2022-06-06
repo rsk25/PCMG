@@ -41,7 +41,7 @@ def read_arguments():
     model.add_argument('--equation-intermediate', '-eqnI', type=int, default=0)
     model.add_argument('--equation-layer', '-eqnL', type=int, default=[6], nargs='+')
     model.add_argument('--equation-head', '-eqnA', type=int, default=0)
-    model.add_argument('--explanation-shuffle', '-expS', type=bool, default=True)
+    model.add_argument('--keyword-shuffle', '-keyS', type=bool, default=True)
 
     log = parser.add_argument_group('Logger setup')
     log.add_argument('--log-path', '-log', type=str, default='./runs')
@@ -98,9 +98,9 @@ def build_configuration(args):
                 MDL_Q_LAYER: tune.grid_search(args.equation_layer),
                 MDL_Q_HEAD: args.equation_head
             },
-            MDL_EXPLANATION: {
+            MDL_KEYWORD: {
                 MDL_ENCODER: args.encoder,
-                MDL_X_SHUFFLE_ON_TRAIN: args.explanation_shuffle
+                MDL_K_SHUFFLE_ON_TRAIN: args.keyword_shuffle
             }
         },
         KEY_RESOURCE: {
@@ -121,7 +121,7 @@ def build_configuration(args):
             'num_warmup_epochs': tune.grid_search(args.opt_warmup),
             'num_total_epochs': args.max_iter
         },
-        KEY_WINDOW: tune.grid_search(args.window_size)
+        KEY_WINDOW: 0
     }
 
 
