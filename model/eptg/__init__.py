@@ -274,31 +274,19 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
 
-
     def generate_eqn(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
 
         if self.training:
-            number_len: List[int] = kwargs['number_len']
-            eqn_tgt: Equation = equation.treat_variables_as_defined(number_len)
-            if _number is None:
-                _num_label: Label = kwargs['_num_label']
-                eqn_tgt: Equation = eqn_tgt.treat_text_as_prev_result(_num_label)
-
+            eqn_tgt: Equation = kwargs['equation']
             equation = self._equation_for_train(target=eqn_tgt, text=_text, number=_number, **eqn_kwargs)[-1]
             return_value['equation'] = equation
             return_value['equation_tgt'] = eqn_tgt
         else:
             equation = self._equation_for_eval(text=_text, number=_number, beam_size=beam, **eqn_kwargs)
-            if _number is None:
-                _num_label: Label = kwargs['_num_label']
-                return_value['equation'] = equation.restore_numbers(_num_label)
-
-            number_len: List[int] = kwargs['number_len']
-            variable_len: List[int] = kwargs['variable_len']
-            return_value['equation'] = equation.restore_variables(number_len, variable_len)
+            return_value['equation'] = equation
 
         return return_value
 
@@ -329,7 +317,7 @@ class MathWordProblemGenerator(EPT):
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
         # (2-3) Read/Generate Equation
-        return_value = self.generate_eqn()
+        return_value = self.generate_eqn(equation=equation, beam=beam, **encode_result)
 
         # Separate internal outputs
         external = {}
