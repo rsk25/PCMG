@@ -6,6 +6,7 @@ from common.const.model import *
 from common.const.operand import VAR_MAX
 from common.const.pad import PAD_ID, UNEXPLAINED_NUMBER
 from common.data import Encoded, Text, Label, label
+from common.torch.util import stack_tensors
 from model.base.chkpt import *
 
 
@@ -135,10 +136,10 @@ class KeywordEquationDecoder(CheckpointingModule):
 
 
     def build_input(self, text: Text, train: bool):
-        #  -> Tuple(torch.Tensor, List[List[str]])
         if not self.is_initialized:
             self._init_kw_model(train)
         selected_kws_list = []
+        kw_logits_list = []
         kw_batch = [tk.flatten() for tk in text.keywords]
         kw_batch = [self.tokenizer.decode(kb.indices) for kb in kw_batch]
 
@@ -147,8 +148,10 @@ class KeywordEquationDecoder(CheckpointingModule):
             kw_logits, selected_kws = self._select_keywords(kwb, train)
             ### Need to collect kw_logits for loss calculation
             selected_kws_list.append(selected_kws)
+            kw_logits_list.append(kw_logits)
         selected_kws_batch = Label.from_list(selected_kws_list).to(text.device)
-        ### Add prompt and Equation here
+        kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
+        assert kw_logits_batch.shape[0] == len(kw_batch)
         input_ids, context_len = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(input_ids.device)
@@ -166,7 +169,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         word = Encoded(word, input_ids.pad)
         embeddings = Encoded(embeddings, input_ids.pad)
 
-        return word, embeddings, context_len
+        return word, embeddings, kw_logits_batch, context_len
 
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
@@ -202,7 +205,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         return encoded, next_key_value
 
 
-    def forward(self, text: Text, text_enc: Encoded, **kwargs) -> Tuple[Encoded, Encoded, Optional[tuple], int]:
+    def forward(self, text: Text, text_enc: Encoded, **kwargs) -> Tuple[Encoded, Encoded, Optional[tuple], int, torch.Tensor]:
         # text: [B,S]
         # target: [B,D]
         # out: [B,D]
@@ -212,7 +215,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         is_cached = (not self.training) and (cached is not None)
 
         # Compute keyword embedding and logits
-        word_emb, full_emb, prefix_len = self.build_input(text, self.training)
+        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
@@ -221,7 +224,7 @@ class KeywordEquationDecoder(CheckpointingModule):
             # Cached: we need only the last token (encoded has already been cut)
             word_emb = word_emb[:, -1:]
 
-        return encoded, word_emb, cached, (0 if is_cached else prefix_len)
+        return encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
 
 
 __all__ = ['KeywordEquationDecoder']
