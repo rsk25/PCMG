@@ -145,7 +145,7 @@ class Example(TypeBatchable):
                 explanation=self.explanation.to_human_readable(tokenizer)
             )
 
-    def accuracy_of(self, **kwargs) -> dict:
+    def accuracy_of(self, **kwargs) -> dict: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
         # num_expl?: B-List of Prediction [N, D]
         # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
@@ -177,7 +177,7 @@ class Example(TypeBatchable):
 
         return result
 
-    def smoothed_cross_entropy(self, **kwargs) -> Dict[str, torch.Tensor]:
+    def smoothed_cross_entropy(self, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
         # num_expl?: B-List of Prediction [N, D]
         # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
