@@ -87,7 +87,7 @@ class MathWordProblemGenerator(EPT):
     def _mwp_for_train(self, text: Text,
                             text_enc: Optional[Encoded], 
                             text_label: Label, 
-                            no_pred: bool = False, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction]]:
+                            no_pred: bool = False, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction], torch.Tensor]:
         if 'cached' in kwargs and kwargs['cached'] is not None:
             # Reset cached keys
             cached = kwargs.pop('cached')
@@ -97,7 +97,7 @@ class MathWordProblemGenerator(EPT):
             head_cache = None
 
         # out: [B,D]
-        mwp_enc, mwp_emb, key_value_cache, prefix_len = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
+        mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
@@ -116,7 +116,7 @@ class MathWordProblemGenerator(EPT):
             if key_value_cache is not None:
                 key_value_cache = key_value_cache + (head_cache,)
 
-            return mwp_enc, key_value_cache, Prediction(predicted)
+            return mwp_enc, key_value_cache, Prediction(predicted), kw_logits
     
     def _mwp_batched_for_train(self, text: Optional[Encoded], 
                                     text_label: Label, 
@@ -133,7 +133,7 @@ class MathWordProblemGenerator(EPT):
             text_b = text[b:b + 1].repeat(keyword_sz) if text is not None else None  # [1, S]
             text_label_b = text_label[b:b + 1].repeat(keyword_sz)  # [1, S]
 
-            kw_enc, _, mwp_pred = \
+            kw_enc, _, mwp_pred, kw_logits = \
                 self._mwp_for_train(keywords=keywords_b, text_label=text_label_b,
                                             target=text_b, no_pred=no_pred)
                 # self._explanation_for_train(text=text_b, text_label=text_label_b, expl_label=num_snippet_b,
@@ -143,7 +143,7 @@ class MathWordProblemGenerator(EPT):
             predictions.append(mwp_pred)
 
         # Return encoded B-List of [N, D] and prediction B-List of [N, D]
-        return encoded, predictions
+        return encoded, predictions, kw_logits
 
     def _mwp_for_eval(self, max_len: int = EXPL_MAX, beam_size: int = 3, **kwargs) -> List[Label]:
         assert 'text' in kwargs
@@ -169,7 +169,7 @@ class MathWordProblemGenerator(EPT):
 
         def compute_next_score_of_beam(seq_len: int, beams: dict, k: int):
             # Shape [M, T]
-            _, kv_cache, mwp_pred = self._mwp_batched_for_train(**move_to(beams, self.device))
+            _, kv_cache, mwp_pred, _ = self._mwp_for_train(**move_to(beams, self.device))
             # Shape [M]
             last_pred: Prediction = mwp_pred[:, -1].to('cpu')
             # Shape [M, T]
