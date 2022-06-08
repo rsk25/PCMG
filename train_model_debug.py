@@ -13,7 +13,6 @@ def build_configuration_supervised(args):
     options[KEY_SCHEDULER]['num_warmup_epochs'] = args.opt_warmup[0]
     options[KEY_MODEL][MDL_EQUATION][MDL_Q_LAYER] = args.equation_layer[0]
     options[KEY_MODEL][MODEL_CLS] = args.model[0]
-    options[KEY_WINDOW] = args.window_size[0]
 
     return options
 
