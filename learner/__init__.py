@@ -411,7 +411,7 @@ class SupervisedTrainer(Trainable):
                 report = batch.accuracy_of(**out_dict)
 
             # Compute loss
-            losses = batch.smoothed_cross_entropy(self._kl_prior, self._kl_coef, **out_dict)
+            losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
 
             # Build sum of losses
             total_loss = sum(losses.values())

@@ -156,7 +156,7 @@ class Example(TypeBatchable):
 
         return result
 
-    def smoothed_cross_entropy(self, kw_kl_prior: float, kw_kl_coef: float, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
+    def loss_calculation(self, kw_kl_prior: float, kw_kl_coef: float, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
         # 
         result = {}
