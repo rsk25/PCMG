@@ -29,7 +29,6 @@ def read_arguments():
     env.add_argument('--experiment-dir', '-exp', type=str, required=True)
     env.add_argument('--beam-expl', '-beamX', type=int, default=5)
     env.add_argument('--beam-expr', '-beamQ', type=int, default=3)
-    env.add_argument('--window-size', '-win', type=int, default=[5], nargs='+')
 
     env.add_argument('--max-iter', '-iter', type=int, default=100)
     env.add_argument('--stop-conditions', '-stop', type=str, nargs='*', default=[])
@@ -42,6 +41,8 @@ def read_arguments():
     model.add_argument('--equation-layer', '-eqnL', type=int, default=[6], nargs='+')
     model.add_argument('--equation-head', '-eqnA', type=int, default=0)
     model.add_argument('--keyword-shuffle', '-keyS', type=bool, default=True)
+    model.add_argument('--kl-prior', '-klP', type=float, default=0.48)
+    model.add_argument('--kl-coefficient', '-klC', type=float, default=0.01)
 
     log = parser.add_argument_group('Logger setup')
     log.add_argument('--log-path', '-log', type=str, default='./runs')
@@ -100,7 +101,9 @@ def build_configuration(args):
             },
             MDL_KEYWORD: {
                 MDL_ENCODER: args.encoder,
-                MDL_K_SHUFFLE_ON_TRAIN: args.keyword_shuffle
+                MDL_K_SHUFFLE_ON_TRAIN: args.keyword_shuffle,
+                LOSS_KL_PRIOR: args.kl_prior,
+                LOSS_KL_COEF: args.kl_coefficient
             }
         },
         KEY_RESOURCE: {
@@ -120,8 +123,7 @@ def build_configuration(args):
             'type': 'warmup-linear',
             'num_warmup_epochs': tune.grid_search(args.opt_warmup),
             'num_total_epochs': args.max_iter
-        },
-        KEY_WINDOW: 0
+        }
     }
 
 
