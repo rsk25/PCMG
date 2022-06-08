@@ -10,7 +10,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 from yaml import dump as yaml_dump
 
-from common.const.model import MDL_ENCODER
+from common.const.model import MDL_ENCODER, MDL_KEYWORD, LOSS_KL_COEF, LOSS_KL_PRIOR
 from common.const.pad import FLOAT_NAN, PAD_ID
 from common.dataset import *
 from common.tester import Tester
@@ -41,6 +41,9 @@ class SupervisedTrainer(Trainable):
         self._optimizer: Optional[Optimizer] = None
         self._scheduler: Optional[LambdaLR] = None
         self._grad_clip: float = 0.0
+
+        self._kl_prior: float = 0.0
+        self._kl_coef: float = 0.0
 
         # Initialize Trainable
         super().__init__(config, logger_creator)
@@ -128,6 +131,8 @@ class SupervisedTrainer(Trainable):
 
         # Set batch size
         self._batch_size = new_config[KEY_BATCH_SZ]
+        self._kl_prior = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_PRIOR]
+        self._kl_coef = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_COEF]
 
         # Set beam size
         self._beam_eqn = new_config[KEY_BEAM]
@@ -406,11 +411,10 @@ class SupervisedTrainer(Trainable):
                 report = batch.accuracy_of(**out_dict)
 
             # Compute loss
-            losses = batch.smoothed_cross_entropy(**out_dict)
+            losses = batch.smoothed_cross_entropy(self._kl_prior, self._kl_coef, **out_dict)
 
             # Build sum of losses
             total_loss = sum(losses.values())
-            ### Add kw selection loss here: total_loss += kw_loss ###
             losses['total'] = total_loss
             report.update({'loss_' + key: value for key, value in losses.items()})
 
