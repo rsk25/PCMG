@@ -246,10 +246,11 @@ class MathWordProblemGenerator(EPT):
             # Case: Training
 
             # 1-3-2. Run prediction for each target
-            enc, _, pred = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
+            enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
             return_value.update({
                 'mwp': pred,
-                '_mwp_enc': enc
+                '_mwp_enc': enc,
+                'kw_logits': kw_logits
             })
         else:
             # Case: Evaluation & generation required (by default)
