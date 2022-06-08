@@ -156,11 +156,9 @@ class Example(TypeBatchable):
 
         return result
 
-    def smoothed_cross_entropy(self, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
+    def smoothed_cross_entropy(self, kw_kl_prior: float, kw_kl_coef: float, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
-        # num_expl?: B-List of Prediction [N, D]
-        # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
-        # var_target?: Label [B, VD]
+        # 
         result = {}
         if 'equation' in kwargs:
             if 'equation_tgt' in kwargs:
@@ -171,15 +169,15 @@ class Example(TypeBatchable):
                 eqn_tgt = self.equation
             result.update(eqn_tgt.smoothed_cross_entropy(kwargs.pop('equation'), smoothing=0.01))
 
-        if 'num_expl' in kwargs and 'var_expl' in kwargs:
-            num_loss = [gold.number_for_train.smoothed_cross_entropy(pred, smoothing=0.01)
-                        for gold, pred in zip(self.explanation, kwargs.pop('num_expl'))]
-            var_loss = [gold.variable_for_train.smoothed_cross_entropy(pred, smoothing=0.01)
-                        for gold, pred in zip(self.explanation, kwargs.pop('var_expl'))]
+        if 'kw_logits' in kwargs:
+            ### The reason we use KL Divergence is because we do not have a dataset this model can use to learn.
+            ### Instead, we have set a prior distribution (Bernoulli) so we can use that to calculate the loss. 
+            p = torch.sigmoid(kwargs.pop('kw_logits'))[:,0]
+            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior]).cuda() ) \
+                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]).cuda() )
+            kw_kl_loss = kw_kl_loss.mean()
 
-            batch_sz = len(var_loss)
-            losses = torch.stack(num_loss + var_loss)
-            result['expl'] = sum(losses) / batch_sz
+            result['keyword_loss'] = kw_kl_coef * kw_kl_loss
 
         return result
 
