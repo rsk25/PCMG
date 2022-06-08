@@ -70,12 +70,10 @@ class Example(TypeBatchable):
     explanation: Union[Explanation, List[Explanation]]
     info: Union[ExtraInfo, List[ExtraInfo]]
 
-    def __init__(self, text: Text, equation: Equation, explanation: Union[Explanation, List[Explanation]],
-                 info: Union[ExtraInfo, List[ExtraInfo]]):
+    def __init__(self, text: Text, equation: Equation, info: Union[ExtraInfo, List[ExtraInfo]]):
         super().__init__()
         self.text = text
         self.equation = equation
-        self.explanation = explanation
         self.info = info
 
     @property
@@ -94,7 +92,6 @@ class Example(TypeBatchable):
     def build_batch(cls, *items: 'Example') -> 'Example':
         return Example(text=Text.build_batch(*[item.text for item in items]),
                        equation=Equation.build_batch(*[item.equation for item in items]),
-                       explanation=[item.explanation for item in items],
                        info=[item.info for item in items])
 
     @classmethod
@@ -107,26 +104,22 @@ class Example(TypeBatchable):
         _info = ExtraInfo.from_dict(raw)
         _text = Text.from_dict(raw, tokenizer=tokenizer, nlp=nlp)
         _equation = Equation.from_dict(raw, var_list_out=_info.variables)
-        _explanation = Explanation.from_dict(raw, n_numbers=len(_info.numbers),
-                                             var_list=_info.variables, tokenizer=tokenizer)
 
         # Filter out not-used variables from the answers
         _info = _info.filter_answers()
 
-        return Example(text=_text, equation=_equation, explanation=_explanation, info=_info)
+        return Example(text=_text, equation=_equation, info=_info)
 
     def as_dict(self) -> dict:
-        return dict(text=self.text, equation=self.equation, explanation=self.explanation, info=self.info)
+        return dict(text=self.text, equation=self.equation, info=self.info)
 
     def get_item_size(self) -> int:
-        return max(self.text.shape[-1], self.equation.shape[-1], self.explanation.number_for_train.shape[-1],
-                   self.explanation.variable_for_train.shape[-1])
+        return max(self.text.shape[-1], self.equation.shape[-1], self.explanation.variable_for_train.shape[-1])
 
     def item_of_batch(self, index: int) -> 'Example':
         assert self.is_batched
         return Example(text=self.text[index],
                        equation=self.equation[index],
-                       explanation=self.explanation[index],
                        info=self.info[index])
 
     def to_human_readable(self, tokenizer=None) -> dict:
@@ -135,21 +128,17 @@ class Example(TypeBatchable):
                 info=[i.to_human_readable() for i in self.info],
                 text=self.text.to_human_readable(tokenizer),
                 equation=self.equation.to_human_readable(),
-                explanation=[d.to_human_readable(tokenizer) for d in self.explanation]
             )
         else:
             return dict(
                 info=self.info.to_human_readable(),
                 text=self.text.to_human_readable(tokenizer),
                 equation=self.equation.to_human_readable(),
-                explanation=self.explanation.to_human_readable(tokenizer)
             )
 
     def accuracy_of(self, **kwargs) -> dict: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
-        # num_expl?: B-List of Prediction [N, D]
-        # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
-        # var_target?: Label [B, VD]
+        # 
         result = {}
         if 'equation' in kwargs:
             if 'equation_tgt' in kwargs:
@@ -160,20 +149,10 @@ class Example(TypeBatchable):
                 eqn_tgt = self.equation
             result.update(eqn_tgt.accuracy_of(kwargs.pop('equation')))
 
-        if 'num_expl' in kwargs:
-            num_expl_cnt = [gold.number_for_train.num_corrects(pred)
-                            for gold, pred in zip(self.explanation, kwargs.pop('num_expl'))]
-            result.update(_compute_accuracy_from_list(num_expl_cnt, key='num'))
-
-        if 'var_expl' in kwargs:
-            var_expl_cnt = [gold.variable_for_train.num_corrects(pred)
-                            for gold, pred in zip(self.explanation, kwargs.pop('var_expl'))]
-            result.update(_compute_accuracy_from_list(var_expl_cnt, key='var'))
-
-        if 'var_len' in kwargs:
-            var_len: torch.Tensor = kwargs.pop('var_len_tgt').indices.float()
-            var_len_pred: torch.Tensor = kwargs.pop('var_len').log_prob.argmax(dim=-1).float()
-            result['diff_var_len'] = (var_len_pred - var_len).mean().item()
+        if 'mwp' in kwargs:
+            mwp_cnt = [gold.tokens.num_corrects(pred)
+                       for gold, pred in zip(self.text, kwargs.pop('mwp'))]
+            result.update(_compute_accuracy_from_list(mwp_cnt, key='mwp_generated'))
 
         return result
 
@@ -202,13 +181,8 @@ class Example(TypeBatchable):
             losses = torch.stack(num_loss + var_loss)
             result['expl'] = sum(losses) / batch_sz
 
-        if 'var_len' in kwargs:
-            var_len: Label = kwargs.pop('var_len_tgt')
-            var_len_pred: Prediction = kwargs.pop('var_len')
-            result['var_len'] = var_len.smoothed_cross_entropy(var_len_pred, smoothing=0.01, shift_target=False)
-
         return result
 
 
-__all__ = ['Example', 'Text', 'Equation', 'EquationPrediction', 'Explanation',
+__all__ = ['Example', 'Text', 'Equation', 'EquationPrediction',
            'ExtraInfo', 'Encoded', 'Label', 'Prediction']
