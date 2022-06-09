@@ -169,7 +169,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         word = Encoded(word, input_ids.pad)
         embeddings = Encoded(embeddings, input_ids.pad)
 
-        return word, embeddings, kw_logits_batch, context_len
+        return word, embeddings, context_len, kw_logits_batch
 
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
