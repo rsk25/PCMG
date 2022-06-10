@@ -4,11 +4,7 @@ from typing import List, Dict, Union
 import re
 from copy import deepcopy
 
-from sympy.core import sympify
-from sympy.core.numbers import Integer, Float
-
 from common.const.operand import NUM_PREFIX
-from common.pen.pattern import NUMBER_OR_FRACTION_PATTERN
 
 
 NUMBERS_DEFAULT_FORMAT = {

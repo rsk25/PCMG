@@ -3,8 +3,6 @@ from typing import List, Dict, Any, Tuple
 import json
 from pathlib import Path
 
-from sympy.core.numbers import E, _eval_is_eq
-
 from .data import MathWordDataset
 
 DATA_PATH = Path('resource/dataset')

@@ -1,12 +1,5 @@
-from types import new_class
 from typing import List, Dict, Any, Tuple
-from pathlib import Path
-import json
-
 import random
-
-from numpy import test
-
 
 def get_ids(dataset: List[Dict[Any, Any]]) -> List[str]:
     id_list = []
