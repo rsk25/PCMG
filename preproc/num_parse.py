@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union
 from nltk import download as nltk_download
 from nltk.corpus import wordnet
 
-from common.pen import NUMBER_OR_FRACTION_PATTERN, PUNCTUATION_END_PATTERN, ORDINAL_PATTERN
+from common.pen.pattern import NUMBER_OR_FRACTION_PATTERN, PUNCTUATION_END_PATTERN, ORDINAL_PATTERN
 
 nltk_download('wordnet')
 
