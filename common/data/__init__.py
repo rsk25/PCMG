@@ -99,7 +99,6 @@ class Example(TypeBatchable):
         raise NotImplementedError('This operation is not supported')
 
     @classmethod
-    # TODO: Eliminate Explanations and modify all related functions
     def from_dict(cls, raw: dict, tokenizer, nlp) -> 'Example':
         _info = ExtraInfo.from_dict(raw)
         _text = Text.from_dict(raw, tokenizer=tokenizer, nlp=nlp)
