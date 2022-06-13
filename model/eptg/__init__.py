@@ -1,5 +1,4 @@
 from typing import Tuple, List, Optional
-from model.ept import attention
 
 import torch
 from numpy.random import Generator, PCG64, randint
@@ -9,11 +8,13 @@ from common.data import *
 from common.const.operand import *
 from common.const.operator import OPR_NEW_VAR_ID, OPR_NEW_EQN_ID
 from common.const.pad import PAD_ID
-from common.data import Text, Equation, Explanation, Encoded, EquationPrediction, Label
+from common.data import Text, Equation, Encoded, EquationPrediction, Label
 from common.data.base import move_to
+from common.data.text import text_tokenization, gather_number_toks, gather_text_toks
 from model.base.util import init_weights, tie_lm_head_with_embed, logsoftmax
-from model.base.beamsearch import beam_search, EXPL_BEAM_SZ
+from model.base.beamsearch import beam_search
 from model.ept import *
+from preproc.num_parse import find_numbers
 from .pg_head import PointerGeneratorHead
 from .kw_eq_decoder import KeywordEquationDecoder
 
@@ -97,7 +98,7 @@ class MathWordProblemGenerator(EPT):
             head_cache = None
 
         # out: [B,D]
-        mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
+        mwp_ids, mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
@@ -116,28 +117,20 @@ class MathWordProblemGenerator(EPT):
             if key_value_cache is not None:
                 key_value_cache = key_value_cache + (head_cache,)
 
-            return mwp_enc, key_value_cache, Prediction(predicted), kw_logits
+            return mwp_ids, mwp_enc, key_value_cache, Prediction(predicted), kw_logits
     
-    def _mwp_batched_for_train(self, text: Optional[Encoded], 
-                                    text_label: Label, 
-                                    keyword_candidates: List[Label],
+    def _mwp_batched_for_train(self, text: Text, 
+                                    text_label: Label,
+                                    text_enc: Optional[Encoded], 
                                     no_pred: bool = False) -> Tuple[List[Encoded], List[Prediction]]:
         encoded = []
         predictions = []
 
-        for b, _ in enumerate(text):
-
-            keywords_b = keyword_candidates[b]  # [N, T] : keyword candidates
-            keyword_sz = keyword_candidates.shape[0]
-
-            text_b = text[b:b + 1].repeat(keyword_sz) if text is not None else None  # [1, S]
-            text_label_b = text_label[b:b + 1].repeat(keyword_sz)  # [1, S]
+        for b, text_b in enumerate(text):
 
             kw_enc, _, mwp_pred, kw_logits = \
-                self._mwp_for_train(keywords=keywords_b, text_label=text_label_b,
-                                            target=text_b, no_pred=no_pred)
-                # self._explanation_for_train(text=text_b, text_label=text_label_b, expl_label=num_snippet_b,
-                #                             target=expl_b, no_pred=no_pred)
+                self._mwp_for_train(text_label=text_label,
+                                            text=text_b, no_pred=no_pred)
 
             encoded.append(kw_enc)
             predictions.append(mwp_pred)
@@ -231,7 +224,7 @@ class MathWordProblemGenerator(EPT):
 
             return new_mwps
 
-    def _encode(self, text: Text) -> Tuple[Encoded, Encoded]:
+    def _encode(self, text: Text,) -> Tuple[Encoded, Encoded]:
         text_vec, num_enc =self.encoder(text)
         return text_vec, num_enc
 
@@ -245,27 +238,49 @@ class MathWordProblemGenerator(EPT):
         if self.training or enforce_training:
             # Case: Training
 
-            # 1-3-2. Run prediction for each target
-            enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
+            # 1-3-2. Run prediction
+            ids, enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
             return_value.update({
                 'mwp': pred,
+                '_mwp_ids': ids,
                 '_mwp_enc': enc,
                 'kw_logits': kw_logits
             })
         else:
             # Case: Evaluation & generation required (by default)
             
-            # 1-3-2. Run prediction for each target
+            # 1-3-2. Run prediction
             print(f'generating MWP..\n')
-            mwp = self._mwp_for_eval(text=text, text_enc=_text, text_label=text.tokens, keywords= text.keywords)
+            mwp = self._mwp_for_eval(text=text, text_enc=_text, text_label=text.tokens, keywords= text.keywords, beam_size=beam)
             return_value.update({
                 'mwp': mwp,
                 '_mwp_enc': mwp  #: Copy for internal use
             })
 
         return return_value
+    
+    def reconstruct_mwp_step201(self, text: Text, mwp_ids: Label) -> Text:
+        with torch.no_grad():
+            assert mwp_ids.is_batched
+            batch_sz = len(mwp_ids)
+            concat_mwps = []
+            concat_numbers = []
+            tokenizer = self.mwpsource_hidden.tokenizer
 
-    def generate_eqn(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
+            for b in range(batch_sz):
+                mwp_tmp_b: str = mwp_ids[b].to_human_readable(converter=tokenizer)['target']
+                numbers: dict = find_numbers(mwp_tmp_b)
+                spaced, orig_to_new_wid, tokens = text_tokenization(mwp_tmp_b, tokenizer)
+                token_nids = gather_number_toks(tokens, spaced, orig_to_new_wid, \
+                                                numbers, tokenizer)
+                tokens = gather_text_toks(tokens, tokenizer)
+                assert len(tokens) == len(token_nids)
+        
+
+        return Text(raw=None, tokens=Label.build_batch(*concat_mwps), numbers=Label.build_batch(*concat_numbers),
+                    keywords=None, prompt_eq=None)
+
+    def generate_eqn_step202(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
@@ -298,17 +313,17 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward_equation(self, text: Text, equation: Equation = None, beam: int = 3,
+    def forward_equation(self, text: Text, _mwp_ids: Prediction, equation: Equation = None, beam: int = 3,
                          **kwargs) -> Tuple[dict, dict]:
 
-        # (2-1) New Math Word Problem
-        new_text = kwargs['mwp']
+        # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
+        new_text = self.reconstruct_mwp_step201(text, _mwp_ids)
 
-        # (2-2) Compute MWP vector (Re-use step 1-1)
+        # Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
-        # (2-3) Read/Generate Equation
-        return_value = self.generate_eqn(equation=equation, beam=beam, **encode_result)
+        # (2-2) Read/Generate Equation
+        return_value = self.generate_eqn_step202(equation=equation, beam=beam, **encode_result)
 
         # Separate internal outputs
         external = {}
