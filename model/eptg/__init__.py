@@ -275,10 +275,13 @@ class MathWordProblemGenerator(EPT):
                                                 numbers, tokenizer)
                 tokens = gather_text_toks(tokens, tokenizer)
                 assert len(tokens) == len(token_nids)
-        
+
+                concat_mwps.append(Label.from_list(tokens))
+                concat_numbers.append(Label.from_list(token_nids))
 
         return Text(raw=None, tokens=Label.build_batch(*concat_mwps), numbers=Label.build_batch(*concat_numbers),
                     keywords=None, prompt_eq=None)
+    
 
     def generate_eqn_step202(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
