@@ -48,6 +48,50 @@ def _remove_special_prefix(token: str) -> str:
         return token[2:]
     return token
 
+def text_tokenization(string: str, tokenizer) -> Tuple[str, dict, List[int]]:
+    spaced, orig_to_new_wid = _add_space_around_number(string)
+    tokens: List[int] = tokenizer.encode(spaced)
+    return spaced, orig_to_new_wid, tokens
+
+
+def gather_number_toks(tokens: List[int], spaced_text: str, orig_to_new_wid: dict, \
+                       numbers: dict, tokenizer) -> List[int]:
+    # Read numbers
+    wid_to_nid = {orig_to_new_wid[token_id]: int(number['key'][PREFIX_LEN:])
+                    for number in numbers
+                    for token_id in number['tokenRange']}
+
+    # Find position of numbers
+    token_nids = []
+    current_nid = PAD_ID
+    current_wid = 0
+    string_left = ' ' + spaced_text.lower()
+    for token in tokenizer.convert_ids_to_tokens(tokens):
+        if token in tokenizer.all_special_tokens:
+            current_nid = PAD_ID
+        else:
+            # Find whether this is the beginning of the word.
+            # We don't use SPIECE_UNDERLINE or ## because ELECTRA separates comma or decimal point...
+            if string_left[0].isspace():
+                current_nid = wid_to_nid.get(current_wid, PAD_ID)
+                current_wid += 1
+                string_left = string_left[1:]
+
+            token_string = _remove_special_prefix(token)
+            assert string_left.startswith(token_string)
+            string_left = string_left[len(token_string):]
+
+        token_nids.append(current_nid)
+
+    return token_nids
+
+
+def gather_text_toks(tokens, tokenizer) -> List[int]:
+    # Set pad token id as PAD_ID (This will be replaced inside a model instance)
+    tokens = [tok if tok != tokenizer.pad_token_id else PAD_ID
+                for tok in tokens]
+    return tokens
+
 
 class Text(TypeTensorBatchable, TypeSelectable):
     #: Tokenized raw text (tokens are separated by whitespaces)
@@ -103,41 +147,11 @@ class Text(TypeTensorBatchable, TypeSelectable):
     @classmethod
     def from_dict(cls, raw: dict, tokenizer, nlp) -> 'Text':
         # Tokenize the text
-        spaced, orig_to_new_wid = _add_space_around_number(raw['text'])
-        tokens: List[int] = tokenizer.encode(spaced)
+        spaced, orig_to_new_wid, tokens = text_tokenization(raw['text'], tokenizer)
         text: str = ' '.join(tokenizer.convert_ids_to_tokens(tokens, skip_special_tokens=True))
-
-        # Read numbers
-        numbers = raw['numbers']
-        wid_to_nid = {orig_to_new_wid[token_id]: int(number['key'][PREFIX_LEN:])
-                      for number in numbers
-                      for token_id in number['tokenRange']}
-
-        # Find position of numbers
-        token_nids = []
-        current_nid = PAD_ID
-        current_wid = 0
-        string_left = ' ' + spaced.lower()
-        for token in tokenizer.convert_ids_to_tokens(tokens):
-            if token in tokenizer.all_special_tokens:
-                current_nid = PAD_ID
-            else:
-                # Find whether this is the beginning of the word.
-                # We don't use SPIECE_UNDERLINE or ## because ELECTRA separates comma or decimal point...
-                if string_left[0].isspace():
-                    current_nid = wid_to_nid.get(current_wid, PAD_ID)
-                    current_wid += 1
-                    string_left = string_left[1:]
-
-                token_string = _remove_special_prefix(token)
-                assert string_left.startswith(token_string)
-                string_left = string_left[len(token_string):]
-
-            token_nids.append(current_nid)
-
-        # Set pad token id as PAD_ID (This will be replaced inside a model instance)
-        tokens = [tok if tok != tokenizer.pad_token_id else PAD_ID
-                  for tok in tokens]
+        token_nids = gather_number_toks(tokens, spaced, orig_to_new_wid, \
+                                        raw['numbers'], tokenizer)
+        tokens = gather_text_toks(tokens, tokenizer)
         assert len(tokens) == len(token_nids)
 
         # Extract keywords: keywords will be save as raw string because it will later be tokenized
