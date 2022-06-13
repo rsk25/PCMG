@@ -152,7 +152,9 @@ class KeywordEquationDecoder(CheckpointingModule):
         selected_kws_batch = Label.from_list(selected_kws_list).to(text.device)
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
+        
         input_ids, context_len = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
+        assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(input_ids.device)
 
@@ -169,7 +171,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         word = Encoded(word, input_ids.pad)
         embeddings = Encoded(embeddings, input_ids.pad)
 
-        return word, embeddings, context_len, kw_logits_batch
+        return input_ids, word, embeddings, context_len, kw_logits_batch
 
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
@@ -205,7 +207,8 @@ class KeywordEquationDecoder(CheckpointingModule):
         return encoded, next_key_value
 
 
-    def forward(self, text: Text, text_enc: Encoded, **kwargs) -> Tuple[Encoded, Encoded, Optional[tuple], int, torch.Tensor]:
+    def forward(self, text: Text, text_enc: Encoded, 
+                **kwargs) -> Tuple[Label, Encoded, Encoded, Optional[tuple], int, torch.Tensor]:
         # text: [B,S]
         # target: [B,D]
         # out: [B,D]
@@ -215,7 +218,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         is_cached = (not self.training) and (cached is not None)
 
         # Compute keyword embedding and logits
-        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
+        words, word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
@@ -224,7 +227,7 @@ class KeywordEquationDecoder(CheckpointingModule):
             # Cached: we need only the last token (encoded has already been cut)
             word_emb = word_emb[:, -1:]
 
-        return encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
+        return words, encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
 
 
 __all__ = ['KeywordEquationDecoder']
