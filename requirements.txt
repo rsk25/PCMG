@@ -21,3 +21,4 @@ git+https://github.com/Wluper/edm
 aioredis==1.3.1
 openpyxl
 spacy
+nltk
