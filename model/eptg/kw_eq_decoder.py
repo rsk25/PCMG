@@ -1,4 +1,5 @@
 from typing import Tuple, Optional, List
+from functools import partial
 
 import torch
 
@@ -128,11 +129,16 @@ class KeywordEquationDecoder(CheckpointingModule):
     def _create_input_ids(self, keywords: Label, equations: Label, target: Label, prefix: Label = None) -> Tuple[Label, int]:
         # Concatenate prefix and keyword & equation labels.  [P] + [B, T] + [B, Eq] -> [B, P+T+Eq]
         tmp = keywords.prepend(self._prefix_prompt)
-        context_input = Label.concat(tmp, equations, dim=1)
-        context_len = context_input.shape[-1]
+        context_len = tmp.shape[-1]
         # Extend target with prefix. [B, D] -> [B, P+T+D]
-        input_ids = Label.concat(prefix, context_input, target, dim=1)
-        return input_ids, context_len
+        input_ids = Label.concat(prefix, tmp, target, dim=1)
+        # context_input = Label.concat(tmp, equations, dim=1)
+        # context_len = context_input.shape[-1]
+        # # Extend target with prefix. [B, D] -> [B, P+T+D]
+        # input_ids = Label.concat(prefix, context_input, target, dim=1)
+        input_ids_copy = input_ids.copy()
+        input_ids_for_debug = input_ids_copy.flatten().to_human_readable(converter=partial(self.tokenizer.decode, skip_special_tokens=True))['target']
+        return input_ids, context_len, input_ids_for_debug
 
 
     def build_input(self, text: Text, train: bool):
