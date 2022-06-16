@@ -155,11 +155,7 @@ class Dataset:
             'equation.operators': _get_stats_of([item.equation.sequence_lengths.item()
                                                  for item in item_list]),
             'equation.var': _get_stats_of([item.equation.operator.indices.eq(OPR_NEW_VAR_ID).sum().item()
-                                           for item in item_list]),
-            'explanation.words': _get_stats_of([len(seq.split())
-                                                for item in item_list
-                                                for worker in item.explanation.to_human_readable(self.tokenizer).values()
-                                                for seq in worker])
+                                           for item in item_list])
         }
 
     def get_rng_state(self):
