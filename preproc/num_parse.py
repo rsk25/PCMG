@@ -1,13 +1,15 @@
+from pathlib import Path
+
 from nltk.corpus.reader import Synset
-from sympy import Number
-from typing import List, Optional, Tuple, Union
+from typing import List, Union
 
 from nltk import download as nltk_download
 from nltk.corpus import wordnet
 
 from common.pen.pattern import NUMBER_OR_FRACTION_PATTERN, PUNCTUATION_END_PATTERN, ORDINAL_PATTERN
 
-nltk_download('wordnet')
+nltk_download('wordnet', download_dir=Path('./eptg_venv/nltk_data'))
+nltk_download('omw-1.4', download_dir=Path('./eptg_venv/nltk_data'))
 
 
 def get_synonyms(word: str, pos=wordnet.NOUN) -> List[str]:
@@ -165,3 +167,4 @@ def find_numbers(text: str):
             })
 
     return numbers
+    
