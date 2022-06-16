@@ -75,7 +75,7 @@ class EPT(CheckpointingModule):
         if number is not None:
             num_count = number.vector.shape[1]
             num_end = offset + num_count
-            key[:, offset:num_end] = number.vector
+            key[:, offset:num_end] = number.vector ### Error occurred on 9th iteration
             key_ignorance_mask[:, offset:num_end] = number.pad
             offset = offset + NUM_MAX
 
