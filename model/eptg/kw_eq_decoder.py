@@ -159,7 +159,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
         
-        input_ids, context_len = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
+        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
         assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
