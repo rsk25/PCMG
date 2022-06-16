@@ -147,9 +147,11 @@ if __name__ == '__main__':
     if not Path(args.log_path).exists():
         Path(args.log_path).mkdir(parents=True)
             
-    # Set GPU device 
-    environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID" 
+    # Set GPU device
+    environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+    if args.num_gpu_ids == 0:
+        torch.cuda.is_available = lambda: False
 
     # Enable logging system
     file_handler = logging.FileHandler(filename=Path(args.log_path, 'meta.log'), encoding='UTF-8')
