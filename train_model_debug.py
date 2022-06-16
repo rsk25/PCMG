@@ -20,6 +20,8 @@ def build_configuration_supervised(args):
 if __name__ == '__main__':
     args = read_arguments()
     args.algorithm = 'supervised'
+    if args.num_gpu == 0:
+        torch.cuda.is_available = lambda: False
 
     if not Path(args.log_path).exists():
         Path(args.log_path).mkdir(parents=True)
