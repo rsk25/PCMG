@@ -14,7 +14,7 @@ from common.trial import trial_dirname_creator_generator
 from learner import *
 from model import MODELS, MODEL_CLS
 
-GPU_IDS = "0,1,2,3"
+GPU_IDS = ""
 CPU_FRACTION = 1.0
 GPU_FRACTION = 0.5
 
@@ -34,7 +34,7 @@ def read_arguments():
     env.add_argument('--stop-conditions', '-stop', type=str, nargs='*', default=[])
 
     model = parser.add_argument_group('Model')
-    model.add_argument('--model', '-model', type=str, choices=MODELS.keys(), default=['SWAN'], nargs='+')
+    model.add_argument('--model', '-model', type=str, choices=MODELS.keys(), default=['EPT'], nargs='+')
     model.add_argument('--encoder', '-enc', type=str, default=DEF_ENCODER)
     model.add_argument('--equation-hidden', '-eqnH', type=int, default=0)
     model.add_argument('--equation-intermediate', '-eqnI', type=int, default=0)
