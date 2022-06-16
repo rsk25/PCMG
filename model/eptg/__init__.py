@@ -282,13 +282,12 @@ class MathWordProblemGenerator(EPT):
                     keywords=None, prompt_eq=None)
     
 
-    def generate_eqn_step202(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
+    def generate_eqn_step202(self, eqn_tgt: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
 
         if self.training:
-            eqn_tgt: Equation = kwargs['equation']
             equation = self._equation_for_train(target=eqn_tgt, text=_text, number=_number, **eqn_kwargs)[-1]
             return_value['equation'] = equation
             return_value['equation_tgt'] = eqn_tgt
@@ -325,7 +324,7 @@ class MathWordProblemGenerator(EPT):
         encode_result = self.encode_text_step101(new_text.to(self.device))
 
         # (2-2) Read/Generate Equation
-        return_value = self.generate_eqn_step202(equation=equation, beam=beam, **encode_result)
+        return_value = self.generate_eqn_step202(eqn_tgt=equation, beam=beam, **encode_result)
 
         # Separate internal outputs
         external = {}
