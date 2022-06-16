@@ -1,4 +1,5 @@
 from typing import Tuple, List, Optional
+from functools import partial
 
 import torch
 from numpy.random import Generator, PCG64, randint
@@ -259,16 +260,15 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
     
-    def reconstruct_mwp_step201(self, text: Text, mwp_ids: Label) -> Text:
+    def reconstruct_mwp_step201(self, mwp: Prediction) -> Text:
+        ### 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
         with torch.no_grad():
-            assert mwp_ids.is_batched
-            batch_sz = len(mwp_ids)
             concat_mwps = []
             concat_numbers = []
             tokenizer = self.mwpsource_hidden.tokenizer
 
-            for b in range(batch_sz):
-                mwp_tmp_b: str = mwp_ids[b].to_human_readable(converter=tokenizer)['target']
+            mwp_tmp_batch = mwp.to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
+            for b, mwp_tmp_b in enumerate(mwp_tmp_batch):
                 numbers: dict = find_numbers(mwp_tmp_b)
                 spaced, orig_to_new_wid, tokens = text_tokenization(mwp_tmp_b, tokenizer)
                 token_nids = gather_number_toks(tokens, spaced, orig_to_new_wid, \
