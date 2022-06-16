@@ -99,7 +99,7 @@ class MathWordProblemGenerator(EPT):
             head_cache = None
 
         # out: [B,D]
-        mwp_ids, mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
+        mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
@@ -118,7 +118,7 @@ class MathWordProblemGenerator(EPT):
             if key_value_cache is not None:
                 key_value_cache = key_value_cache + (head_cache,)
 
-            return mwp_ids, mwp_enc, key_value_cache, Prediction(predicted), kw_logits
+            return mwp_enc, key_value_cache, Prediction(predicted), kw_logits
     
     def _mwp_batched_for_train(self, text: Text, 
                                     text_label: Label,
@@ -240,10 +240,9 @@ class MathWordProblemGenerator(EPT):
             # Case: Training
 
             # 1-3-2. Run prediction
-            ids, enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
+            enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_enc=_text, text_label=text.tokens)
             return_value.update({
                 'mwp': pred,
-                '_mwp_ids': ids,
                 '_mwp_enc': enc,
                 'kw_logits': kw_logits
             })
@@ -316,11 +315,11 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward_equation(self, text: Text, _mwp_ids: Prediction, equation: Equation = None, beam: int = 3,
+    def forward_equation(self, mwp: Prediction, equation: Equation = None, beam: int = 3,
                          **kwargs) -> Tuple[dict, dict]:
 
         # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
-        new_text = self.reconstruct_mwp_step201(text, _mwp_ids)
+        new_text = self.reconstruct_mwp_step201(mwp)
 
         # Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
