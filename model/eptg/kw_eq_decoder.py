@@ -177,7 +177,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         word = Encoded(word, input_ids.pad)
         embeddings = Encoded(embeddings, input_ids.pad)
 
-        return input_ids, word, embeddings, context_len, kw_logits_batch
+        return word, embeddings, context_len, kw_logits_batch
 
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
@@ -224,7 +224,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         is_cached = (not self.training) and (cached is not None)
 
         # Compute keyword embedding and logits
-        words, word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
+        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
@@ -233,7 +233,7 @@ class KeywordEquationDecoder(CheckpointingModule):
             # Cached: we need only the last token (encoded has already been cut)
             word_emb = word_emb[:, -1:]
 
-        return words, encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
+        return encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
 
 
 __all__ = ['KeywordEquationDecoder']
