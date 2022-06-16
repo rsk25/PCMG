@@ -11,7 +11,7 @@ def _compute_accuracy_from_list(items: list, key: str = '') -> dict:
     values = {}
     for tgt in {'token', 'seq'}:
         for field in {'corrects', 'total'}:
-            values[tgt + field] = sum([item[tgt][field] for item in items])
+            values[tgt + field] = items[tgt][field]
 
     return {
         f'token_acc_{key}': values['tokencorrects'] / values['tokentotal'] if values['tokentotal'] else float('NaN'),
@@ -113,7 +113,7 @@ class Example(TypeBatchable):
         return dict(text=self.text, equation=self.equation, info=self.info)
 
     def get_item_size(self) -> int:
-        return max(self.text.shape[-1], self.equation.shape[-1], self.explanation.variable_for_train.shape[-1])
+        return max(self.text.shape[-1], self.equation.shape[-1])
 
     def item_of_batch(self, index: int) -> 'Example':
         assert self.is_batched
@@ -149,8 +149,7 @@ class Example(TypeBatchable):
             result.update(eqn_tgt.accuracy_of(kwargs.pop('equation')))
 
         if 'mwp' in kwargs:
-            mwp_cnt = [gold.tokens.num_corrects(pred)
-                       for gold, pred in zip(self.text, kwargs.pop('mwp'))]
+            mwp_cnt = self.text.tokens.num_corrects(kwargs['mwp'])
             result.update(_compute_accuracy_from_list(mwp_cnt, key='mwp_generated'))
 
         return result
@@ -172,8 +171,8 @@ class Example(TypeBatchable):
             ### The reason we use KL Divergence is because we do not have a dataset this model can use to learn.
             ### Instead, we have set a prior distribution (Bernoulli) so we can use that to calculate the loss. 
             p = torch.sigmoid(kwargs.pop('kw_logits'))[:,0]
-            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior]).cuda() ) \
-                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]).cuda() )
+            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior]).to(self.device) ) \
+                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]).to(self.device) )
             kw_kl_loss = kw_kl_loss.mean()
 
             result['keyword_loss'] = kw_kl_coef * kw_kl_loss
