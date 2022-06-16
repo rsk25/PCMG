@@ -343,7 +343,7 @@ class MathWordProblemGenerator(EPT):
         return_value.update(p1_external)
 
         """ (Phase 2) Building solution equations """
-        p2_external, p2_internal = self.forward_equation(text, **p1_internal, **kwargs)
+        p2_external, p2_internal = self.forward_equation(**p1_internal, **kwargs)
         return_value.update(p2_external)
 
         return return_value
