@@ -52,7 +52,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         # Register prefix for generating MWP (exclude [SEP] at the end)
         # Shape [P]
         self.register_buffer('_prefix_prompt', torch.LongTensor(tokenizer.encode('generate:')[:-1]))
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
     def _init_kw_model(self, training: bool) -> None:
@@ -72,9 +72,9 @@ class KeywordEquationDecoder(CheckpointingModule):
     def _select_keywords(self, kwb: List[str], train: bool, drop=0) -> Tuple[torch.Tensor, str]:
         kwb_split = kwb.split()
         # kw_emb_tmp: T x Emb
-        kw_emb_tmp = torch.stack([self.embeddings.word_embeddings(torch.LongTensor(self._encode(kw_str)).cuda()).sum(0) for kw_str in kwb_split]) # sum the subword embedding to get a single embedding for a word with subwords
+        kw_emb_tmp = torch.stack([self.embeddings.word_embeddings(torch.LongTensor(self._encode(kw_str)).to(self.device)).sum(0) for kw_str in kwb_split]) # sum the subword embedding to get a single embedding for a word with subwords
         # attn: T x T
-        attn = torch.softmax(torch.mm(kw_emb_tmp, kw_emb_tmp.t()) / torch.sqrt(torch.FloatTensor([kw_emb_tmp.shape[1]]).cuda()) , dim=1) 
+        attn = torch.softmax(torch.mm(kw_emb_tmp, kw_emb_tmp.t()) / torch.sqrt(torch.FloatTensor([kw_emb_tmp.shape[1]]).to(self.device)) , dim=1) 
         # kw_summary: T x Emb
         kw_summary = (attn.unsqueeze(1).repeat(1, kw_emb_tmp.shape[1], 1) * kw_emb_tmp.unsqueeze(-1).repeat(1, 1, kw_emb_tmp.shape[0])).sum(-1) 
         # kw_logits: T x Vocab
@@ -102,8 +102,8 @@ class KeywordEquationDecoder(CheckpointingModule):
         for kw_str in new_kw:
             kw_tok_tmp = self._encode(kw_str)
             new_kw_tok += kw_tok_tmp
-        new_sample_hard = torch.zeros(len(new_kw_tok)).cuda()
-        new_sample_soft = torch.zeros(len(new_kw_tok)).cuda()
+        new_sample_hard = torch.zeros(len(new_kw_tok)).to(self.device)
+        new_sample_soft = torch.zeros(len(new_kw_tok)).to(self.device)
         for kw_str in new_kw:
             kw_tok_tmp = self._encode(kw_str)
             length = len(kw_tok_tmp)
@@ -117,7 +117,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         select = map(bool, sample.tolist())
         selected_kws = [w for w, s in zip(new_kw_tok, select) if s]
         # # compute the masked keyword embeddings (wte==WordTokenEmbeddings)
-        # kw_emb = self.embedding(torch.LongTensor(new_kw_tok).cuda()) # dim = T x D
+        # kw_emb = self.embedding(torch.LongTensor(new_kw_tok).to(self.device)) # dim = T x D
         # if train:
         #     kw_emb_masked = kw_emb * sample.unsqueeze(1).expand_as(kw_emb)
         # else:
@@ -155,14 +155,14 @@ class KeywordEquationDecoder(CheckpointingModule):
             ### Need to collect kw_logits for loss calculation
             selected_kws_list.append(selected_kws)
             kw_logits_list.append(kw_logits)
-        selected_kws_batch = Label.from_list(selected_kws_list).to(text.device)
+        selected_kws_batch = Label.from_list(selected_kws_list).to(self.device)
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
         
         input_ids, context_len = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
         assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
-        token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(input_ids.device)
+        token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
 
         # As we may add 'text_label' vector and do want to apply it after adding the vector,
         # we will explicitly call word_embedding here.
