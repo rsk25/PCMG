@@ -147,7 +147,7 @@ class KeywordEquationDecoder(CheckpointingModule):
         selected_kws_list = []
         kw_logits_list = []
         kw_batch = [tk.flatten() for tk in text.keywords]
-        kw_batch = [self.tokenizer.decode(kb.indices) for kb in kw_batch]
+        kw_batch = [self.tokenizer.decode(kb.indices, skip_special_tokens=True) for kb in kw_batch]
 
         # compute samples
         for kwb in kw_batch:
