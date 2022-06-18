@@ -6,6 +6,8 @@ from train_model import read_arguments, build_configuration
 from model import MODEL_CLS
 from yaml import dump
 
+from torch.autograd import detect_anomaly
+
 
 def build_configuration_supervised(args):
     options = build_configuration(args)
@@ -26,9 +28,10 @@ if __name__ == '__main__':
     if not Path(args.log_path).exists():
         Path(args.log_path).mkdir(parents=True)
 
-    algorithm = SupervisedTrainer(build_configuration_supervised(args))
-    for i in tqdm.trange(args.max_iter):
-        print('------------------------------------------')
-        print(dump(algorithm.train()))
+    with detect_anomaly(args.detect_anomaly):
+        algorithm = SupervisedTrainer(build_configuration_supervised(args))
+        for i in tqdm.trange(args.max_iter):
+            print('------------------------------------------')
+            print(dump(algorithm.train()))
 
-    algorithm.stop()
+        algorithm.stop()
