@@ -73,9 +73,8 @@ def get_embedding_without_pad(embedding: Union[nn.Embedding, torch.Tensor],
         embedding = F.embedding(tokens, embedding)
 
     # Set masked values as zero vector.
-    if ignore_positions.any(): ### cpu로 돌려봐야함.. 
-        ## torch abnormal behavior detection
-        embedding.masked_fill_(ignore_positions.unsqueeze(-1), 0.0)
+    if ignore_positions.any():
+            embedding.masked_fill_(ignore_positions.unsqueeze(-1), 0.0)
 
     return embedding.contiguous()
 
