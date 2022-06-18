@@ -1,5 +1,6 @@
 from typing import Tuple, Optional, List
 from functools import partial
+from model.base.util import init_weights
 
 import torch
 
@@ -16,7 +17,7 @@ class KeywordEquationDecoder(CheckpointingModule):
     Base model for equation generation/classification (Abstract class)
     """
 
-    def __init__(self, encoder: str = DEF_ENCODER, **kwargs):
+    def __init__(self, encoder: str = DEF_ENCODER, init_factor: float = 0.01, **kwargs):
         """
         Initiate Equation Builder instance
 
@@ -43,7 +44,9 @@ class KeywordEquationDecoder(CheckpointingModule):
         self.embeddings = model.embeddings
         self.embed_dim = model.config.embedding_size
         
-        self.is_initialized = False
+        # self.is_initialized = False
+        self.apply(lambda module: init_weights(module ,init_factor))
+
         self.extended_attention_mask = model.get_extended_attention_mask
         self.invert_attention_mask = model.invert_attention_mask
         if hasattr(model, 'embeddings_project'):
@@ -55,14 +58,14 @@ class KeywordEquationDecoder(CheckpointingModule):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-    def _init_kw_model(self, training: bool) -> None:
-        if (not self.is_initialized) and training:
-            torch.nn.init.xavier_uniform_(self.kw_linear.weight)
-            torch.nn.init.zeros_(self.kw_linear.bias)
-            self.kw_linear.weight.requires_grad=True
-            self.kw_linear.bias.requires_grad=True
-            self.embeddings.requires_grad=False
-            self.is_initialized = True
+    # def _init_kw_model(self, training: bool) -> None:
+    #     if (not self.is_initialized) and training:
+    #         torch.nn.init.xavier_uniform_(self.kw_linear.weight)
+    #         torch.nn.init.zeros_(self.kw_linear.bias)
+    #         self.kw_linear.weight.requires_grad=True
+    #         self.kw_linear.bias.requires_grad=True
+    #         self.embeddings.requires_grad=False
+    #         self.is_initialized = True
 
 
     def _encode(self, string: str) -> torch.Tensor:
@@ -142,8 +145,8 @@ class KeywordEquationDecoder(CheckpointingModule):
 
 
     def build_input(self, text: Text, train: bool):
-        if not self.is_initialized:
-            self._init_kw_model(train)
+        # if not self.is_initialized:
+        #     self._init_kw_model(train)
         selected_kws_list = []
         kw_logits_list = []
         kw_batch = [tk.flatten() for tk in text.keywords]
