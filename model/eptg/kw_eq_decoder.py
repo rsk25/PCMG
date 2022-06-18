@@ -12,7 +12,7 @@ from common.torch.util import stack_tensors
 from model.base.chkpt import *
 
 
-class KeywordEquationDecoder(CheckpointingModule):
+class KeywordEquationEncoder(CheckpointingModule):
     """
     Base model for equation generation/classification (Abstract class)
     """
@@ -27,6 +27,10 @@ class KeywordEquationDecoder(CheckpointingModule):
 
         from transformers import AutoModel, AutoTokenizer
         model = AutoModel.from_pretrained(encoder, add_cross_attention=True, is_decoder=True)
+        # Copy encoder and embeddings
+        self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
+        self.embeddings = model.embeddings
+        self.embed_dim = model.config.embedding_size
 
         tokenizer = AutoTokenizer.from_pretrained(encoder)
         self.pad_id = tokenizer.pad_token_id
@@ -39,11 +43,6 @@ class KeywordEquationDecoder(CheckpointingModule):
         self.tokenizer = tokenizer
         self.encoder = model.encoder
 
-        # Copy encoder and embeddings
-        self.kw_linear = torch.nn.Linear(model.config.embedding_size, model.config.vocab_size)
-        self.embeddings = model.embeddings
-        self.embed_dim = model.config.embedding_size
-        
         # self.is_initialized = False
         self.apply(lambda module: init_weights(module ,init_factor))
 
@@ -239,4 +238,4 @@ class KeywordEquationDecoder(CheckpointingModule):
         return encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
 
 
-__all__ = ['KeywordEquationDecoder']
+__all__ = ['KeywordEquationEncoder']
