@@ -1,5 +1,5 @@
 import logging
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser
 from os import cpu_count, environ
 from sys import argv
 
@@ -46,7 +46,9 @@ def read_arguments():
 
     log = parser.add_argument_group('Logger setup')
     log.add_argument('--log-path', '-log', type=str, default='./runs')
-    log.add_argument('--detect-anomaly', action=BooleanOptionalAction)
+    log.add_argument('--detect-anomaly', action='store_true')
+    log.add_argument('--detect-anomaly', dest='detect-anomaly', action='store_false')
+    log.set_defaults(detect_anomaly=True)
 
     work = parser.add_argument_group('Worker setup')
     work.add_argument('--gpu-ids', '-ids', type=str, default=GPU_IDS)
