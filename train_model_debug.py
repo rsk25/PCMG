@@ -28,10 +28,12 @@ if __name__ == '__main__':
     if not Path(args.log_path).exists():
         Path(args.log_path).mkdir(parents=True)
 
-    with detect_anomaly(args.detect_anomaly):
-        algorithm = SupervisedTrainer(build_configuration_supervised(args))
-        for i in tqdm.trange(args.max_iter):
-            print('------------------------------------------')
-            print(dump(algorithm.train()))
+    if args.detect_anomaly:
+        detect_anomaly()
+        
+    algorithm = SupervisedTrainer(build_configuration_supervised(args))
+    for i in tqdm.trange(args.max_iter):
+        print('------------------------------------------')
+        print(dump(algorithm.train()))
 
-        algorithm.stop()
+    algorithm.stop()
