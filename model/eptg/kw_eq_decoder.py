@@ -43,7 +43,6 @@ class KeywordEquationEncoder(CheckpointingModule):
         self.tokenizer = tokenizer
         self.encoder = model.encoder
 
-        # self.is_initialized = False
         self.apply(lambda module: init_weights(module ,init_factor))
 
         self.extended_attention_mask = model.get_extended_attention_mask
@@ -55,16 +54,6 @@ class KeywordEquationEncoder(CheckpointingModule):
         # Shape [P]
         self.register_buffer('_prefix_prompt', torch.LongTensor(tokenizer.encode('generate:')[:-1]))
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-    # def _init_kw_model(self, training: bool) -> None:
-    #     if (not self.is_initialized) and training:
-    #         torch.nn.init.xavier_uniform_(self.kw_linear.weight)
-    #         torch.nn.init.zeros_(self.kw_linear.bias)
-    #         self.kw_linear.weight.requires_grad=True
-    #         self.kw_linear.bias.requires_grad=True
-    #         self.embeddings.requires_grad=False
-    #         self.is_initialized = True
 
 
     def _encode(self, string: str) -> torch.Tensor:
