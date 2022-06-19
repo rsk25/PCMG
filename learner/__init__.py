@@ -290,7 +290,7 @@ class SupervisedTrainer(Trainable):
 
         self._optimizer = cls([params
                                for key, params in self._model.named_parameters()
-                               if ('encoder.model.embeddings' not in key) and ('explanation.embeddings' not in key)],
+                               if ('encoder.model.embeddings' not in key) and ('mwpsource_hidden.embeddings' not in key)],
                               **kwargs)
 
     def _set_scheduler(self, **kwargs):
