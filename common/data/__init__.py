@@ -157,7 +157,7 @@ class Example(TypeBatchable):
     def loss_calculation(self, kw_kl_prior: float, kw_kl_coef: float, **kwargs) -> Dict[str, torch.Tensor]: ### Fix here (rsk25)
         # equation: EquationPrediction [B, T]
         # 
-        # device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         result = {}
         if 'equation' in kwargs:
             if 'equation_tgt' in kwargs:
@@ -172,8 +172,8 @@ class Example(TypeBatchable):
             ### The reason we use KL Divergence is because we do not have a dataset this model can use to learn.
             ### Instead, we have set a prior distribution (Bernoulli) so we can use that to calculate the loss. 
             p = torch.sigmoid(kwargs.pop('kw_logits'))[:,0]
-            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior])) \
-                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]))
+            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior]).to(device)) \
+                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]).to(device))
             kw_kl_loss = kw_kl_loss.mean()
 
             result['keyword_loss'] = kw_kl_coef * kw_kl_loss
