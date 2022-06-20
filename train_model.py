@@ -61,6 +61,7 @@ def read_arguments():
     setup.add_argument('--opt-grad-clip', '-clip', type=float, default=10.0)
     setup.add_argument('--opt-warmup', '-warmup', type=float, default=[2], nargs='+')
     setup.add_argument('--batch-size', '-bsz', type=int, default=4)
+    setup.add_argument('--copy-ratio-decrementer', '-cr', type=float, default=0.01)
 
     return parser.parse_args()
 
@@ -105,7 +106,8 @@ def build_configuration(args):
                 MDL_K_SHUFFLE_ON_TRAIN: args.keyword_shuffle,
                 LOSS_KL_PRIOR: args.kl_prior,
                 LOSS_KL_COEF: args.kl_coefficient
-            }
+            },
+            MDL_DECREMENTER: args.copy_ratio_decrementer
         },
         KEY_RESOURCE: {
             KEY_GPU: args.num_gpu,
