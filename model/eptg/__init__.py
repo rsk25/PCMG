@@ -17,7 +17,7 @@ from model.base.beamsearch import beam_search
 from model.ept import *
 from preproc.num_parse import find_numbers
 from .pg_head import PointerGeneratorHead
-from .kw_eq_decoder import KeywordEquationDecoder
+from .kw_eq_decoder import KeywordEquationEncoder
 
 _OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
@@ -27,7 +27,7 @@ class MathWordProblemGenerator(EPT):
         super().__init__(**config)
 
         ### Need to add a new module that includes kw_linear and concats the keyword embeddings with equations and prompt
-        self.mwpsource_hidden = KeywordEquationDecoder.create_or_load(**self.config[MDL_KEYWORD])
+        self.mwpsource_hidden = KeywordEquationEncoder.create_or_load(**self.config[MDL_KEYWORD])
         # Head for predicting mwp
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
                                                 embed_dim=self.mwpsource_hidden.embed_dim,
@@ -259,20 +259,36 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
     
-    def reconstruct_mwp_step201(self, mwp: Prediction) -> Text:
-        ### 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
+    def reconstruct_mwp_step201(self, copy_ratio: float, text: Text, mwp: Prediction) -> Text:
+        ### TODO: 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
         with torch.no_grad():
             concat_mwps = []
             concat_numbers = []
             tokenizer = self.mwpsource_hidden.tokenizer
 
+            # text_tmp_batch = text.to_human_readable(tokenizer=partial(tokenizer.decode, skip_special_tokens=True))['tokens']
+            raw_text_tmp_batch = text.to_human_readable(tokenizer=tokenizer)['raw']
             mwp_tmp_batch = mwp.to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
-            for b, mwp_tmp_b in enumerate(mwp_tmp_batch):
+            for mwp_tmp_b, raw_text_tmp_b in zip(mwp_tmp_batch, raw_text_tmp_batch):
+                # copy certain ratio from gold text
+                orig_len = len(raw_text_tmp_b)
+                gen_len = len(mwp_tmp_b)
+                if copy_ratio == 1:
+                    combined_text = raw_text_tmp_b
+                elif copy_ratio == 0:
+                    combined_text = mwp_tmp_b
+                else:
+                    from_orig = raw_text_tmp_b[: orig_len // copy_ratio]
+                    from_gen = mwp_tmp_b[gen_len // (1-copy_ratio):]
+                    combined_text = from_orig + from_gen
+                
+                spaced, orig_to_new_wid, tokens = text_tokenization(combined_text, tokenizer)
+                tokens = gather_text_toks(tokens, tokenizer)
+                
                 numbers: dict = find_numbers(mwp_tmp_b)
-                spaced, orig_to_new_wid, tokens = text_tokenization(mwp_tmp_b, tokenizer)
                 token_nids = gather_number_toks(tokens, spaced, orig_to_new_wid, \
                                                 numbers, tokenizer)
-                tokens = gather_text_toks(tokens, tokenizer)
+
                 assert len(tokens) == len(token_nids)
 
                 concat_mwps.append(Label.from_list(tokens))
@@ -297,14 +313,14 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
 
-    def forward_mwp(self, text: Text, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
+    def forward_mwp(self, copy_ratio: float, text: Text, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
         # Prepare kwargs
         return_value = {}
         
         return_value.update(self.encode_text_step101(text))
         
         # Generate math word problem
-        return_value.update(self.generate_mwp_step102(text, beam=beam_mwp, **return_value))
+        return_value.update(self.generate_mwp_step102(copy_ratio, text, beam=beam_mwp, **return_value))
 
         # Separate internal outputs
         external = {}
@@ -314,11 +330,11 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward_equation(self, mwp: Prediction, equation: Equation = None, beam: int = 3,
+    def forward_equation(self, text: Text, mwp: Prediction, equation: Equation = None, beam: int = 3,
                          **kwargs) -> Tuple[dict, dict]:
 
         # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
-        new_text = self.reconstruct_mwp_step201(mwp)
+        new_text = self.reconstruct_mwp_step201(text, mwp)
 
         # Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
@@ -334,16 +350,16 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward(self, text: Text, **kwargs):
+    def forward(self, copy_ratio: float, text: Text, **kwargs):
         # Ignore OPR_NEW_VAR_ID on training
         return_value = {'eqn_ignore': {OPR_NEW_VAR_ID}}
 
         """ (Phase 1) Generating math word problems """
-        p1_external, p1_internal = self.forward_mwp(text, **kwargs)
+        p1_external, p1_internal = self.forward_mwp(copy_ratio, text, **kwargs)
         return_value.update(p1_external)
 
         """ (Phase 2) Building solution equations """
-        p2_external, p2_internal = self.forward_equation(**p1_internal, **kwargs)
+        p2_external, p2_internal = self.forward_equation(text, **p1_internal, **kwargs)
         return_value.update(p2_external)
 
         return return_value
