@@ -187,7 +187,7 @@ class SupervisedTrainer(Trainable):
 
         # Run evaluation periodically
         executed_split = {}
-        self._copy_ratio -= self._decrement
+        self._copy_ratio -= self._decrement ### for each step, decrease copy ratio of gold text
         iter_after_pretrain = self._iteration + 1
 
         for key, config in self._eval_configs.items():
@@ -222,6 +222,7 @@ class SupervisedTrainer(Trainable):
                 'dataset': self._dataset.get_rng_state()
             },
             'iteration': self._iteration,
+            'copy_ratio': self._copy_ratio,
             'optimizer': self._optimizer.state_dict(),
             'scheduler': self._scheduler.state_dict() if self._scheduler is not None else None
         }
@@ -239,6 +240,7 @@ class SupervisedTrainer(Trainable):
 
         # Load iteration
         self._iteration = state['iteration']
+        self._copy_ratio = state['copy_ratio']
 
         # Load policy
         self._model.load_state_dict(state[KEY_MODEL])
@@ -410,7 +412,7 @@ class SupervisedTrainer(Trainable):
             # num_expl?: B-List of Prediction [N, D]
             # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
             # var_target?: Label [B, VD]
-            out_dict = self._model.forward(**batch.to(self._model.device).as_dict())
+            out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
 
             # Compute accuracy of tokens
             with torch.no_grad():
