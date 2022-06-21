@@ -312,14 +312,14 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
 
-    def forward_mwp(self, copy_ratio: float, text: Text, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
+    def forward_mwp(self, text: Text, beam_mwp: int = 3, **kwargs) -> Tuple[dict, dict]:
         # Prepare kwargs
         return_value = {}
         
         return_value.update(self.encode_text_step101(text))
         
         # Generate math word problem
-        return_value.update(self.generate_mwp_step102(copy_ratio, text, beam=beam_mwp, **return_value))
+        return_value.update(self.generate_mwp_step102(text, beam=beam_mwp, **return_value))
 
         # Separate internal outputs
         external = {}
@@ -329,11 +329,11 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward_equation(self, text: Text, mwp: Prediction, equation: Equation = None, beam: int = 3,
+    def forward_equation(self, copy_ratio: float, text: Text, mwp: Prediction, equation: Equation = None, beam: int = 3,
                          **kwargs) -> Tuple[dict, dict]:
 
         # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
-        new_text = self.reconstruct_mwp_step201(text, mwp)
+        new_text = self.reconstruct_mwp_step201(copy_ratio, text, mwp)
 
         # Compute MWP vector (Re-use step 1-1)
         encode_result = self.encode_text_step101(new_text.to(self.device))
@@ -354,11 +354,11 @@ class MathWordProblemGenerator(EPT):
         return_value = {'eqn_ignore': {OPR_NEW_VAR_ID}}
 
         """ (Phase 1) Generating math word problems """
-        p1_external, p1_internal = self.forward_mwp(copy_ratio, text, **kwargs)
+        p1_external, p1_internal = self.forward_mwp(text, **kwargs)
         return_value.update(p1_external)
 
         """ (Phase 2) Building solution equations """
-        p2_external, p2_internal = self.forward_equation(text, **p1_internal, **kwargs)
+        p2_external, p2_internal = self.forward_equation(copy_ratio, text, **p1_internal, **kwargs)
         return_value.update(p2_external)
 
         return return_value
