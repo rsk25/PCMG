@@ -61,7 +61,7 @@ def read_arguments():
     setup.add_argument('--opt-grad-clip', '-clip', type=float, default=10.0)
     setup.add_argument('--opt-warmup', '-warmup', type=float, default=[2], nargs='+')
     setup.add_argument('--batch-size', '-bsz', type=int, default=4)
-    setup.add_argument('--copy-ratio-decrementer', '-cr', type=float, default=0.01)
+    setup.add_argument('--copy-ratio-decrementer', '-cr', type=float, default=0.1)
 
     return parser.parse_args()
 
