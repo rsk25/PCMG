@@ -278,14 +278,13 @@ class MathWordProblemGenerator(EPT):
                 elif copy_ratio == 0:
                     combined_text = mwp_tmp_b
                 else:
-                    from_orig = raw_text_tmp_b[: orig_len // copy_ratio]
-                    from_gen = mwp_tmp_b[gen_len // (1-copy_ratio):]
+                    from_orig = raw_text_tmp_b[:int(orig_len * copy_ratio)]
+                    from_gen = mwp_tmp_b[int(gen_len * (1-copy_ratio)):]
                     combined_text = from_orig + from_gen
                 
+                numbers: dict = find_numbers(combined_text)
                 spaced, orig_to_new_wid, tokens = text_tokenization(combined_text, tokenizer)
                 tokens = gather_text_toks(tokens, tokenizer)
-                
-                numbers: dict = find_numbers(mwp_tmp_b)
                 token_nids = gather_number_toks(tokens, spaced, orig_to_new_wid, \
                                                 numbers, tokenizer)
 
