@@ -205,7 +205,7 @@ class EquationDecoder(CheckpointingModule):
             Shape [B, T, A, H]
         """
         # Use Positional Encoding if number is None.
-        if number is None:
+        if number is None or number.nelement() == 0:
             number = pos_enc.expand(operand_source.shape[0], -1, -1)
 
         # Compute c_a u_* first.
