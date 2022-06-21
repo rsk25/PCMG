@@ -73,9 +73,10 @@ class EPT(CheckpointingModule):
 
         # Add numbers
         if number is not None:
-            num_count = number.vector.shape[1]
+            num_count = min(number.vector.shape[1], NUM_MAX)
+            ### dynamic하게 num 개수 찾기? (original EPT)
             num_end = offset + num_count
-            key[:, offset:num_end] = number.vector ### Error occurred on 9th iteration
+            key[:, offset:num_end] = number.vector[:, :num_count]
             key_ignorance_mask[:, offset:num_end] = number.pad
             offset = offset + NUM_MAX
 
