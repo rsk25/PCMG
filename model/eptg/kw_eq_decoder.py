@@ -143,7 +143,6 @@ class KeywordEquationEncoder(CheckpointingModule):
         # compute samples
         for kwb in kw_batch:
             kw_logits, selected_kws = self._select_keywords(kwb, train)
-            ### Need to collect kw_logits for loss calculation
             selected_kws_list.append(selected_kws)
             kw_logits_list.append(kw_logits)
         selected_kws_batch = Label.from_list(selected_kws_list).to(self.device)
