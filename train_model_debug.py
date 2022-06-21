@@ -28,7 +28,7 @@ if __name__ == '__main__':
     if not Path(args.log_path).exists():
         Path(args.log_path).mkdir(parents=True)
 
-    if args.detect_anomaly:
+    if args.detect_anomaly == 'true':
         detect_anomaly()
         
     algorithm = SupervisedTrainer(build_configuration_supervised(args))
