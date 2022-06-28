@@ -23,29 +23,28 @@ class Tester:
         eqn_metrics = defaultdict(list)
         result_dumps = []
 
-        expl_references = {}
-        expl_hypotheses = {}
+        mwp_references = {}
+        mwp_hypotheses = {}
 
         for item, pair in output_pairs:
             result_dump_b = {}
             if tokenizer is not None:
                 result_dump_b = item.to_human_readable(tokenizer)
 
-            # (1) Collect generated explanations if possible.
-            if 'explanation' in pair:
-                expected, predicted = pair['explanation']
-                result_dump_b['expl_generated'] = predicted
-                id_prefix = item.info.item_id + '::%s'
+            # (1) Collect generated MWPs if possible.
+            expected, predicted = pair['mwp']
+            result_dump_b['mwp_generated'] = predicted
+            id_prefix = item.info.item_id + '::%s'
 
-                expl_references.update({
-                    id_prefix % key: expl
-                    for key, expl in expected.items()
-                })
+            mwp_references.update({
+                id_prefix % key: mwp
+                for key, mwp in enumerate(expected)
+            })
 
-                expl_hypotheses.update({
-                    id_prefix % key: expl
-                    for key, expl in predicted.items()
-                })
+            mwp_hypotheses.update({
+                id_prefix % key: mwp
+                for key, mwp in enumerate(predicted)
+            })
 
             # (2) compute accuracy of the equation
             if 'correctness' in pair:
@@ -71,14 +70,12 @@ class Tester:
 
             result_dumps.append(result_dump_b)
 
-        if expl_references:
-            expl_keys = sorted(expl_references.keys())
-            expl_hypotheses = {key: expl_hypotheses.get(key, ['']) for key in expl_keys}
+        
+        mwp_keys = sorted(mwp_references.keys())
+        mwp_hypotheses = {key: mwp_hypotheses.get(key, ['']) for key in mwp_keys}
 
-            metric: dict = {key: float(value)
-                            for key, value in compute_metrics(expl_references, expl_hypotheses).items()}
-        else:
-            metric: dict = {}
+        metric: dict = {key: float(value)
+                        for key, value in compute_metrics(mwp_references, mwp_hypotheses).items()}
 
         for key, items in eqn_metrics.items():
             metric[key] = sum(items) / len(items)
