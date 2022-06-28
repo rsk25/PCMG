@@ -1,6 +1,7 @@
 import math
 import pickle
 from collections import defaultdict
+from functools import partial
 from typing import Optional
 
 from ray.tune.resources import Resources
@@ -375,16 +376,19 @@ class SupervisedTrainer(Trainable):
         output_pairs = []
         with torch.no_grad():
             for batch in self._dataset.get_minibatches(self._batch_size, for_testing=True):
-                output = self._model.forward(text=batch.text.to(self._model.device),
-                                             beam=self._beam_eqn, beam_expl=self._beam_expl)
+                output = self._model.forward(copy_ratio=self._copy_ratio, 
+                                             text=batch.text.to(self._model.device),
+                                             beam=self._beam_eqn)
 
                 for b in range(batch.batch_size):
                     item = batch.item_of_batch(b)
-                    pairs = dict(equation=(item.equation, output['equation'][b]))
-
-                    if 'explanation' in output:
-                        pairs['explanation'] = (item.explanation.to_id_explanation_dict(tokenizer),
-                                                output['explanation'][b].to_id_explanation_dict(tokenizer))
+                    pairs = dict(
+                        equation=(item.equation, output['equation'][b]),
+                        mwp=(
+                            item.text.raw, 
+                            output['mwp'][b].to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
+                        )
+                    )
 
                     output_pairs.append((item, pairs))
 
