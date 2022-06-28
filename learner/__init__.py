@@ -11,7 +11,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 from yaml import dump as yaml_dump
 
-from common.const.model import MDL_DECREMENTER, MDL_ENCODER, MDL_KEYWORD, LOSS_KL_COEF, LOSS_KL_PRIOR
+from common.const.model import MDL_COPY_RATIO, MDL_DECREMENTER, MDL_ENCODER, MDL_KEYWORD, LOSS_KL_COEF, LOSS_KL_PRIOR
 from common.const.pad import FLOAT_NAN, PAD_ID
 from common.dataset import *
 from common.tester import Tester
@@ -47,7 +47,7 @@ class SupervisedTrainer(Trainable):
         self._kl_coef: float = 0.0
 
         self._copy_ratio: float = 1
-        self._decrement: float = 0.01
+        self._decrement: float = 0.1
 
         # Initialize Trainable
         super().__init__(config, logger_creator)
@@ -138,6 +138,7 @@ class SupervisedTrainer(Trainable):
         self._kl_prior = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_PRIOR]
         self._kl_coef = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_COEF]
         self._decrement = new_config[KEY_MODEL][MDL_DECREMENTER]
+        self._copy_ratio = new_config[KEY_MODEL][MDL_COPY_RATIO]
 
         # Set beam size
         self._beam_eqn = new_config[KEY_BEAM]
@@ -188,7 +189,8 @@ class SupervisedTrainer(Trainable):
 
         # Run evaluation periodically
         executed_split = {}
-        self._copy_ratio -= self._decrement ### for each step, decrease copy ratio of gold text
+        if self._copy_ratio > 0:
+            self._copy_ratio -= self._decrement ### for each step, decrease copy ratio of gold text
         iter_after_pretrain = self._iteration + 1
 
         for key, config in self._eval_configs.items():
