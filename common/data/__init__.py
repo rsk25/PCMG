@@ -148,9 +148,9 @@ class Example(TypeBatchable):
                 eqn_tgt = self.equation
             result.update(eqn_tgt.accuracy_of(kwargs.pop('equation')))
 
-        if 'mwp' in kwargs:
-            mwp_cnt = self.text.tokens.num_corrects(kwargs['mwp'])
-            result.update(_compute_accuracy_from_list(mwp_cnt, key='mwp_generated'))
+        # if 'mwp' in kwargs:
+        #     mwp_cnt = self.text.tokens.num_corrects(kwargs['mwp'])
+        #     result.update(_compute_accuracy_from_list(mwp_cnt, key='mwp_generated'))
 
         return result
 
