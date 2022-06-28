@@ -120,21 +120,21 @@ class KeywordEquationEncoder(CheckpointingModule):
     def _create_input_ids(self, keywords: Label, equations: Label, target: Label, prefix: Label = None) -> Tuple[Label, int]:
         # Concatenate prefix and keyword & equation labels.  [P] + [B, T] + [B, Eq] -> [B, P+T+Eq]
         tmp = keywords.prepend(self._prefix_prompt)
-        context_len = tmp.shape[-1]
         # Extend target with prefix. [B, D] -> [B, P+T+D]
-        input_ids = Label.concat(prefix, tmp, target, dim=1)
-        # context_input = Label.concat(tmp, equations, dim=1)
-        # context_len = context_input.shape[-1]
-        # # Extend target with prefix. [B, D] -> [B, P+T+D]
-        # input_ids = Label.concat(prefix, context_input, target, dim=1)
+        if no_equations:
+            context_len = tmp.shape[-1]
+            input_ids = Label.concat(prefix, tmp, target, dim=1)
+        else:
+            context_input = Label.concat(tmp, equations, dim=1)
+            context_len = context_input.shape[-1]
+            input_ids = Label.concat(prefix, context_input, target, dim=1)
+        # Extend target with prefix. [B, D] -> [B, P+T+D]
         input_ids_copy = input_ids.copy()
         input_ids_for_debug = input_ids_copy.flatten().to_human_readable(converter=partial(self.tokenizer.decode, skip_special_tokens=True))['target']
         return input_ids, context_len, input_ids_for_debug
 
 
-    def build_input(self, text: Text, train: bool):
-        # if not self.is_initialized:
-        #     self._init_kw_model(train)
+    def build_input(self, text: Union[Text, dict], train: bool, no_equations: bool):
         selected_kws_list = []
         kw_logits_list = []
         kw_batch = [tk.flatten() for tk in text.keywords]
@@ -149,7 +149,7 @@ class KeywordEquationEncoder(CheckpointingModule):
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
         
-        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens)
+        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens, no_equations=no_equations)
         assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
@@ -214,7 +214,7 @@ class KeywordEquationEncoder(CheckpointingModule):
         is_cached = (not self.training) and (cached is not None)
 
         # Compute keyword embedding and logits
-        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training)
+        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training, no_equations=True)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
