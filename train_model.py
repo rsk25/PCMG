@@ -1,5 +1,5 @@
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from os import cpu_count, environ
 from sys import argv
 
@@ -17,6 +17,16 @@ from model import MODELS, MODEL_CLS
 GPU_IDS = ""
 CPU_FRACTION = 1.0
 GPU_FRACTION = 0.5
+
+def restricted_float(x):
+    try:
+        x = float(x)
+    except ValueError:
+        raise ArgumentTypeError("%r not a floating-point literal" % (x,))
+
+    if x < 0.0 or x > 1.0:
+        raise ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
+    return x
 
 
 def read_arguments():
@@ -61,7 +71,8 @@ def read_arguments():
     setup.add_argument('--opt-grad-clip', '-clip', type=float, default=10.0)
     setup.add_argument('--opt-warmup', '-warmup', type=float, default=[2], nargs='+')
     setup.add_argument('--batch-size', '-bsz', type=int, default=4)
-    setup.add_argument('--copy-ratio-decrementer', '-cr', type=float, default=0.1)
+    setup.add_argument('--starting-copy-ratio', '-cr', type=restricted_float, default=1.0)
+    setup.add_argument('--copy-ratio-decrementer', '-crD', type=restricted_float, default=0.1)
 
     return parser.parse_args()
 
@@ -107,6 +118,7 @@ def build_configuration(args):
                 LOSS_KL_PRIOR: args.kl_prior,
                 LOSS_KL_COEF: args.kl_coefficient
             },
+            MDL_COPY_RATIO: args.starting_copy_ratio,
             MDL_DECREMENTER: args.copy_ratio_decrementer
         },
         KEY_RESOURCE: {
