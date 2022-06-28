@@ -155,8 +155,8 @@ class MathWordProblemGenerator(EPT):
             # Initially we start with a single beam.
             beamscores = torch.zeros((batch_sz, 1))
             text_batch = [dict(text=text[b]) for b in range(batch_sz)]
-            batch = [dict(text_enc=text_enc[b:b + 1],  # [1, S]
-                          text_label=text_label[b:b + 1],  # [1, S]
+            batch = [dict(text_enc=text_enc[b],  # [1, S]
+                          text_label=text_label[b],  # [1, S]
                           target=Label.from_list([[self._sep_token]]),  # [1, T=1]
                           cached=None)
                           for b in range(batch_sz)]
