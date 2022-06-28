@@ -1,4 +1,4 @@
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 from functools import partial
 from model.base.util import init_weights
 
@@ -117,7 +117,8 @@ class KeywordEquationEncoder(CheckpointingModule):
         return kw_logits, selected_kws
 
 
-    def _create_input_ids(self, keywords: Label, equations: Label, target: Label, prefix: Label = None) -> Tuple[Label, int]:
+    def _create_input_ids(self, keywords: Label, equations: Label, target: Label, 
+                          no_equations: bool = False, prefix: Label = None) -> Tuple[Label, int]:
         # Concatenate prefix and keyword & equation labels.  [P] + [B, T] + [B, Eq] -> [B, P+T+Eq]
         tmp = keywords.prepend(self._prefix_prompt)
         # Extend target with prefix. [B, D] -> [B, P+T+D]
@@ -137,7 +138,10 @@ class KeywordEquationEncoder(CheckpointingModule):
     def build_input(self, text: Union[Text, dict], train: bool, no_equations: bool):
         selected_kws_list = []
         kw_logits_list = []
-        kw_batch = [tk.flatten() for tk in text.keywords]
+        if type(text) is dict:
+            kw_batch = [tk.flatten() for tk in text['text'].keywords]
+        else:
+            kw_batch = [tk.flatten() for tk in text.keywords]
         kw_batch = [self.tokenizer.decode(kb.indices, skip_special_tokens=True) for kb in kw_batch]
 
         # compute samples
@@ -171,7 +175,7 @@ class KeywordEquationEncoder(CheckpointingModule):
 
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
-                              prev_key_value: tuple = None) -> Tuple[Encoded, tuple]:
+                      prev_key_value: tuple = None) -> Tuple[Encoded, tuple]:
         if (not self.training) and (prev_key_value is not None):
             # Cached: we need only the last token
             embedding = embedding[:, -1:]
