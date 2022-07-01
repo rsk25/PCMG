@@ -17,7 +17,7 @@ from model.base.beamsearch import beam_search
 from model.ept import *
 from preproc.num_parse import find_numbers
 from .pg_head import PointerGeneratorHead
-from .kw_eq_decoder import KeywordEquationEncoder
+from .mwp_decoder import MWPDecoder
 
 _OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
@@ -27,7 +27,7 @@ class MathWordProblemGenerator(EPT):
         super().__init__(**config)
 
         ### Need to add a new module that includes kw_linear and concats the keyword embeddings with equations and prompt
-        self.mwpsource_hidden = KeywordEquationEncoder.create_or_load(**self.config[MDL_KEYWORD])
+        self.mwpsource_hidden = MWPDecoder.create_or_load(**self.config[MDL_KEYWORD])
         # Head for predicting mwp
         self.mwp_pghead = PointerGeneratorHead(hidden_dim=self.equation.hidden_dim,
                                                 embed_dim=self.mwpsource_hidden.embed_dim,
@@ -44,7 +44,7 @@ class MathWordProblemGenerator(EPT):
         init_weights(self.var_count_predict, self.equation.init_factor)
 
         self._rng = Generator(PCG64(1))
-   
+
 
     @property
     def _sep_token(self) -> int:
