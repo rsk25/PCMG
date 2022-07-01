@@ -194,7 +194,7 @@ class MathWordProblemGenerator(EPT):
                 for key in prev_beams:
                     if key in {'cached', 'target'} or prev_beams[key] is None:
                         continue
-                    prev_beams[key] = prev_beams[key].repeat(beamsz)
+                    prev_beams[key] = prev_beams[key].repeat(beamsz) ## 이걸 왜 해야 할까? 
 
             prev_beams['target'] = prev_beams['target'][beam_selected].extends_to(list_of_next['target'])
 
@@ -226,7 +226,7 @@ class MathWordProblemGenerator(EPT):
 
             return new_mwps
 
-    def _encode(self, text: Text,) -> Tuple[Encoded, Encoded]:
+    def _encode(self, text: Text) -> Tuple[Encoded, Encoded]:
         text_vec, num_enc =self.encoder(text)
         return text_vec, num_enc
 
