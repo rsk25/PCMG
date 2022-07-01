@@ -12,7 +12,7 @@ from common.torch.util import stack_tensors
 from model.base.chkpt import *
 
 
-class KeywordEquationEncoder(CheckpointingModule):
+class MWPDecoder(CheckpointingModule):
     """
     Base model for equation generation/classification (Abstract class)
     """
@@ -230,4 +230,4 @@ class KeywordEquationEncoder(CheckpointingModule):
         return encoded, word_emb, cached, (0 if is_cached else prefix_len), kw_logits
 
 
-__all__ = ['KeywordEquationEncoder']
+__all__ = ['MWPDecoder']
