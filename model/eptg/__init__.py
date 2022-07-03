@@ -154,18 +154,17 @@ class MathWordProblemGenerator(EPT):
         def initialize_fn():
             # Initially we start with a single beam.
             beamscores = torch.zeros((batch_sz, 1))
-            text_batch = [dict() for b in range(batch_sz)]
             batch = [dict(text=text[b : b+1],
                           text_enc=text_enc[b : b+1],  # [1, S]
                           text_label=text_label[b : b+1],  # [1, S]
                           target=Label.from_list([[self._sep_token]]),  # [1, T=1]
                           cached=None)
                           for b in range(batch_sz)]
-            return text_batch, batch, beamscores
+            return batch, beamscores
 
-        def compute_next_score_of_beam(text: Text, seq_len: int, beams: dict, k: int):
+        def compute_next_score_of_beam(seq_len: int, beams: dict, k: int):
             # Shape [M, T]
-            _, kv_cache, mwp_pred, _ = self._mwp_for_train(**move_to(text, self.device), **move_to(beams, self.device))
+            _, kv_cache, mwp_pred, _ = self._mwp_for_train(**move_to(beams, self.device))
             # Shape [M]
             last_pred: Prediction = mwp_pred[:, -1].to('cpu')
             # Shape [M, T]
