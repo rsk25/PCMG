@@ -13,7 +13,7 @@ venv/
 resource/bleurt/
 resource/dataset/new_pen.json
 resource/dataset/math23k_only.json
-resource/dataset/math23k_preproc/archive/
+resource/dataset/math23k_preproc/*
 runs/
 
 # ignore peripheral directories and scripts

@@ -61,10 +61,11 @@ def get_embedding_without_pad(embedding: Union[nn.Embedding, torch.Tensor],
     tokens = tokens.clone()
     is_embedding = isinstance(embedding, nn.Embedding)
     embedding_sz = embedding.num_embeddings if is_embedding else embedding.shape[0]
-    ### empty로 들어오면 zero tensor로 output 내보내게 만들기
     ignore_positions = tokens.eq(ignore_index).logical_or(tokens.ge(embedding_sz))
     if ignore_positions.any():
         tokens.masked_fill_(ignore_positions, 0)
+    ### empty로 들어오면 zero tensor로 output 내보내게 만들기
+    ###### 10*256 zero tensor
 
     # Apply embedding matrix
     if is_embedding:
