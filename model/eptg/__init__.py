@@ -199,16 +199,8 @@ class MathWordProblemGenerator(EPT):
                                         concat_next_fn, is_all_finished, max_len, beam_size)
 
             # Select top-scored beam
-            new_mwps = []
-            for b, len_b in enumerate(batch_sz):
-                if len_b > 0:
-                    new_mwps.append(Label.build_batch(*[item['target'][0]
-                                                        for item in batched_beams[:len_b]]))
-                    batched_beams = batched_beams[len_b:]
-                else:
-                    # Add empty explanation, [0, 0]
-                    new_mwps.append(Label(torch.full((0, 0), fill_value=PAD_ID, dtype=torch.long)))
-
+            new_mwps = Label.build_batch(*[item['target'][0]
+                                           for item in batched_beams])
             return new_mwps
 
     def _encode(self, text: Text) -> Tuple[Encoded, Encoded]:
