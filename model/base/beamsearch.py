@@ -24,7 +24,7 @@ def beam_search(initialize_fn: Callable[[], Tuple[List[dict], torch.Tensor]],
                 max_len: int = RES_MAX, beam_size: int = 3,
                 len_penalty_alpha: float = 0):
     # List of beams. B * [M, ...] and Tensor of [B, M].
-    text_batch, batch, beamscores = initialize_fn()
+    batch, beamscores = initialize_fn()
     finished = False
 
     # From 1 to HORIZON.
@@ -35,7 +35,7 @@ def beam_search(initialize_fn: Callable[[], Tuple[List[dict], torch.Tensor]],
         next_beamscores = torch.zeros(beamscores.shape[0], beam_size)
         next_batch = []
         finished = True
-        for i, (text, item) in enumerate(zip(text_batch, batch)):
+        for i, item in enumerate(batch):
             if seq_len > 1 and is_item_finished(item):
                 # If all beams of this item is done, this item will not be computed anymore.
                 next_batch.append(item)
@@ -43,7 +43,7 @@ def beam_search(initialize_fn: Callable[[], Tuple[List[dict], torch.Tensor]],
 
             # Compute scores
             score_i = [(_length_penalty(score + beamscores[i, m_prev], seq_len, len_penalty_alpha), m_prev, predicted)
-                       for score, m_prev, predicted in compute_score_fn(text, seq_len, item, beam_size)]
+                       for score, m_prev, predicted in compute_score_fn(seq_len, item, beam_size)]
             score_i = sorted(score_i, key=lambda t: t[0], reverse=True)[:beam_size]
 
             # Construct the next beams
