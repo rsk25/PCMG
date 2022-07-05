@@ -21,8 +21,6 @@ def read_arguments():
     parser.add_argument('--dataset', '-data', type=str, required=True)
     parser.add_argument('--experiment-dir', '-exp', type=str, required=True)
     parser.add_argument('--seed', '-seed', type=int, default=1)
-    parser.add_argument('--faithfulness', '-faith', type=str, nargs='+', choices=EXPERIMENT_TYPES.keys(),
-                        default=list(EXPERIMENT_TYPES.keys()))
     parser.add_argument('--bootstrap-trials', '-ntr', type=int, default=1000)
     parser.add_argument('--sample-size', '-smp', type=int, default=100)
     parser.add_argument('--repeating-counts', '-rep', type=int, nargs='+', default=[1, 2, 4, 8])
@@ -154,59 +152,6 @@ def run_model_once(model_path, **exp_dict):
     tester.close()
 
 
-def run_faithfulness(model_path, exp_header, faith_args=None, **exp_dict):
-    set_seed(exp_dict[KEY_SEED])
-
-    pretrained = model_load(model_path)
-    if device_count() > 0:
-        pretrained.to('cuda')
-
-    if faith_args is None:
-        faith_args = [dict()]
-
-    config = load_config(model_path)
-    dataset = Dataset(exp_dict[KEY_DATASET], langmodel=config[KEY_MODEL][MDL_ENCODER], seed=exp_dict[KEY_SEED])
-    exp_cls = EXPERIMENT_TYPES[exp_header](pretrained, dataset, config[KEY_BATCH_SZ])
-    outdir = Path(model_path)
-
-    with torch.no_grad():
-        for experiment in exp_dict[KEY_EXPERIMENT]:
-            exp_cls.set_test_split(str(experiment))
-            with (outdir / (experiment.stem + '.p')).open('rb') as fp:
-                exp_cls.register_control_result(pickle.load(fp))
-
-            for arg in faith_args:
-                arg_string = [exp_header] + ['%s_%s' % (k[0], v) for k, v in arg.items()]
-                faith_exp = '-'.join(arg_string)
-                pkl_out = (outdir / (experiment.stem + '-%s.p' % faith_exp))
-                yaml_out = (outdir / (experiment.stem + '-summary.yaml'))
-                sample_out = (outdir / (experiment.stem + '-%s-sample.yaml' % faith_exp))
-                finished = (outdir / (experiment.stem + '-%s.f' % faith_exp))
-
-                if not experiment.is_file() or experiment.stem == KEY_TRAIN or finished.exists():
-                    continue
-
-                exp_cls.register_experiment_result(**arg)
-                measures = exp_cls.get_measurements()
-
-                with pkl_out.open('wb') as fp:
-                    pickle.dump(measures, fp)
-
-                with yaml_out.open('a+t', encoding='UTF-8') as fp:
-                    yaml_dump({faith_exp: get_metric_summary(list(measures.values()))._asdict()},
-                              fp, allow_unicode=True)
-                    fp.write('\n')
-
-                with sample_out.open('w+t', encoding='UTF-8') as fp:
-                    yaml_dump(exp_cls.get_paired_samples(), fp, allow_unicode=True)
-                    fp.write('\n')
-
-                finished.touch()
-
-    exp_cls.close()
-    del pretrained
-
-
 def compute_resample(model_path: str, split: str, keys: List[str],
                      resample_index: int) -> List[Tuple[str, str, int, Metric]]:
     outdir = Path(model_path)
@@ -253,9 +198,7 @@ if __name__ == '__main__':
     if DEBUG:
         for model in tqdm.tqdm(models):
             run_model_once(model, **exp_base)
-            for faith in tqdm.tqdm(args.faithfulness):
-                if 'EPT' not in model:
-                    run_faithfulness(model, faith, **exp_base)
+            
     else:
         num_devices = device_count()
         if args.num_gpu > 0 and num_devices > 0:
@@ -264,13 +207,9 @@ if __name__ == '__main__':
             ray.init(num_cpus=cpu_count())
 
         run_model_ray = ray.remote(run_model_once).options(num_gpus=args.num_gpu, num_cpus=args.num_cpu)
-        run_faith_ray = ray.remote(run_faithfulness).options(num_gpus=args.num_gpu, num_cpus=args.num_cpu)
 
         ray.get([run_model_ray.remote(model, **exp_base)
                  for model in models])
-        ray.get([run_faith_ray.remote(model, faith, **exp_base)
-                 for model in models if 'EPT' not in model
-                 for faith in args.faithfulness])
 
     # Run bootstrapping
     for split_file in tqdm.tqdm(experiments):
