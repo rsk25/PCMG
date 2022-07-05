@@ -179,7 +179,7 @@ class MathWordProblemGenerator(EPT):
                 for key in prev_beams:
                     if key in {'cached', 'target'} or prev_beams[key] is None:
                         continue
-                    prev_beams[key] = prev_beams[key].repeat(beamsz) ## 이걸 왜 해야 할까? 
+                    prev_beams[key] = prev_beams[key].repeat(beamsz)
 
             prev_beams['target'] = prev_beams['target'][beam_selected].extends_to(list_of_next['target'])
 
