@@ -248,20 +248,35 @@ class MathWordProblemGenerator(EPT):
 
             # text_tmp_batch = text.to_human_readable(tokenizer=partial(tokenizer.decode, skip_special_tokens=True))['tokens']
             raw_text_tmp_batch = text.to_human_readable(tokenizer=tokenizer)['raw']
-            mwp_tmp_batch = mwp.to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
+            if self.training:
+                mwp_tmp_batch = mwp.to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
+            else:
+                mwp_tmp_batch = [
+                    mwp[b].flatten().to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['target']
+                    for b in range(mwp.shape[0])
+                ]
+                copy_ratio = 0
+
             for mwp_tmp_b, raw_text_tmp_b in zip(mwp_tmp_batch, raw_text_tmp_batch):
                 # copy certain ratio from gold text
-                orig_len = len(raw_text_tmp_b)
-                gen_len = len(mwp_tmp_b)
                 if copy_ratio == 1:
                     combined_text = raw_text_tmp_b
-                elif copy_ratio == 0:
+                elif copy_ratio == 0 and mwp_tmp_b != '':
                     combined_text = mwp_tmp_b
                 else:
-                    from_orig = raw_text_tmp_b[:int(orig_len * copy_ratio)]
-                    from_gen = mwp_tmp_b[int(gen_len * (1-copy_ratio)):]
-                    combined_text = from_orig + from_gen
-                
+                    raw_text_tmp_b_split = raw_text_tmp_b.split()
+                    mwp_tmp_b_split = mwp_tmp_b.split()
+                    orig_len = len(raw_text_tmp_b_split)
+                    gen_len = len(mwp_tmp_b_split)
+                    if gen_len == 0:
+                        mwp_tmp_b = raw_text_tmp_b_split[randint(0, orig_len-1)]
+                    if copy_ratio == 0:
+                        combined_text = mwp_tmp_b
+                    else:
+                        from_orig = raw_text_tmp_b_split[:int(orig_len * copy_ratio)]
+                        from_gen = mwp_tmp_b_split[int(gen_len * (1-copy_ratio)):]
+                        combined_text = ' '.join(from_orig + from_gen)
+                    
                 numbers: dict = find_numbers(combined_text)
                 spaced, orig_to_new_wid, tokens = text_tokenization(combined_text, tokenizer)
                 tokens = gather_text_toks(tokens, tokenizer)
