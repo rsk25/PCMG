@@ -135,13 +135,10 @@ class MWPDecoder(CheckpointingModule):
         return input_ids, context_len, input_ids_for_debug
 
 
-    def build_input(self, text: Union[Text, dict], train: bool, no_equations: bool):
+    def build_input(self, text_keywords, text_equations, text_label, train: bool, no_equations: bool):
         selected_kws_list = []
         kw_logits_list = []
-        if type(text) is dict:
-            kw_batch = [tk.flatten() for tk in text['text'].keywords]
-        else:
-            kw_batch = [tk.flatten() for tk in text.keywords]
+        kw_batch = [tk.flatten() for tk in text_keywords]
         kw_batch = [self.tokenizer.decode(kb.indices, skip_special_tokens=True) for kb in kw_batch]
 
         # compute samples
@@ -153,7 +150,7 @@ class MWPDecoder(CheckpointingModule):
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
         
-        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text.prompt_eq, text.tokens, no_equations=no_equations)
+        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text_equations, text_label, no_equations=no_equations)
         assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
@@ -207,7 +204,7 @@ class MWPDecoder(CheckpointingModule):
         return encoded, next_key_value
 
 
-    def forward(self, text: Text, text_enc: Encoded, 
+    def forward(self, text_keywords: Label, text_equations: Label, text_label: Label, text_enc: Encoded, 
                 **kwargs) -> Tuple[Label, Encoded, Encoded, Optional[tuple], int, torch.Tensor]:
         # text: [B,S]
         # target: [B,D]
@@ -218,7 +215,8 @@ class MWPDecoder(CheckpointingModule):
         is_cached = (not self.training) and (cached is not None)
 
         # Compute keyword embedding and logits
-        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text, self.training, no_equations=True)
+        word_emb, full_emb, prefix_len, kw_logits = self.build_input(text_keywords, text_equations, 
+                                                                     text_label, self.training, no_equations=True)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
