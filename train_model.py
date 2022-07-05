@@ -46,6 +46,7 @@ def read_arguments():
     model = parser.add_argument_group('Model')
     model.add_argument('--model', '-model', type=str, choices=MODELS.keys(), default=['EPT'], nargs='+')
     model.add_argument('--encoder', '-enc', type=str, default=DEF_ENCODER)
+    model.add_argument('--ept-pretrained-path','-eptP', type=str, default=None)
     model.add_argument('--equation-hidden', '-eqnH', type=int, default=0)
     model.add_argument('--equation-intermediate', '-eqnI', type=int, default=0)
     model.add_argument('--equation-layer', '-eqnL', type=int, default=[6], nargs='+')
@@ -107,6 +108,7 @@ def build_configuration(args):
             MODEL_CLS: tune.grid_search(args.model),
             MDL_ENCODER: args.encoder,
             MDL_EQUATION: {
+                MDL_Q_PATH: args.ept_pretrained_path,
                 MDL_Q_HIDDEN: args.equation_hidden,
                 MDL_Q_INTER: args.equation_intermediate,
                 MDL_Q_LAYER: tune.grid_search(args.equation_layer),
