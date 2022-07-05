@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 from functools import partial
 
 import torch
@@ -86,7 +86,7 @@ class MathWordProblemGenerator(EPT):
     def _decode_mwp_source(self, **kwargs) -> Tuple[Encoded, Encoded, tuple, int]:
         return self.mwpsource_hidden.forward(**kwargs)
 
-    def _mwp_for_train(self, text: Text,
+    def _mwp_for_train(self, text_keywords: Label, text_equations: Label,
                             text_label: Label, 
                             text_enc: Optional[Encoded] = None, 
                             no_pred: bool = False, **kwargs) -> Tuple[Encoded, tuple, Optional[Prediction], torch.Tensor]:
@@ -99,7 +99,9 @@ class MathWordProblemGenerator(EPT):
             head_cache = None
 
         # out: [B,D]
-        mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(text=text, text_enc=text_enc, **kwargs)
+        mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(
+            text_keywords=text_keywords, text_equations=text_equations, text_label=text_label, text_enc=text_enc, **kwargs
+        )
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
@@ -120,29 +122,11 @@ class MathWordProblemGenerator(EPT):
 
             return mwp_enc, key_value_cache, Prediction(predicted), kw_logits
     
-    def _mwp_batched_for_train(self, text: Text, 
-                                    text_label: Label,
-                                    text_enc: Optional[Encoded], 
-                                    no_pred: bool = False) -> Tuple[List[Encoded], List[Prediction]]:
-        encoded = []
-        predictions = []
-
-        for b, text_b in enumerate(text):
-
-            kw_enc, _, mwp_pred, kw_logits = \
-                self._mwp_for_train(text_label=text_label,
-                                            text=text_b, no_pred=no_pred)
-
-            encoded.append(kw_enc)
-            predictions.append(mwp_pred)
-
-        # Return encoded B-List of [N, D] and prediction B-List of [N, D]
-        return encoded, predictions, kw_logits
 
     def _mwp_for_eval(self, max_len: int = MWP_MAX, beam_size: int = 3, **kwargs) -> List[Label]:
-        assert 'text' in kwargs
 
-        text: Text = kwargs['text']
+        text_keywords: Label = kwargs['text_kw']
+        text_equations: Label = kwargs['text_eq']
         # text_enc: [B,S]
         text_enc: Encoded = kwargs['text_enc']
         # text_label: [B,S]
@@ -154,7 +138,8 @@ class MathWordProblemGenerator(EPT):
         def initialize_fn():
             # Initially we start with a single beam.
             beamscores = torch.zeros((batch_sz, 1))
-            batch = [dict(text=text[b : b+1],
+            batch = [dict(text_keywords=text_keywords[b : b+1],
+                          text_equations=text_equations[b : b+1],
                           text_enc=text_enc[b : b+1],  # [1, S]
                           text_label=text_label[b : b+1],  # [1, S]
                           target=Label.from_list([[self._sep_token]]),  # [1, T=1]
@@ -241,7 +226,8 @@ class MathWordProblemGenerator(EPT):
             # Case: Training
 
             # 1-3-2. Run prediction
-            enc, _, pred, kw_logits = self._mwp_for_train(text=text, text_label=text.tokens, text_enc=_text)
+            enc, _, pred, kw_logits = self._mwp_for_train(text_keywords=text.keywords, text_equations=text.prompt_eq, 
+                                                          text_label=text.tokens, text_enc=_text)
             return_value.update({
                 'mwp': pred,
                 '_mwp_enc': enc,
@@ -252,7 +238,8 @@ class MathWordProblemGenerator(EPT):
             
             # 1-3-2. Run prediction
             print(f'generating MWP..\n')
-            mwp = self._mwp_for_eval(text=text, text_enc=_text, text_label=text.tokens, keywords=text.keywords, beam_size=beam)
+            mwp = self._mwp_for_eval(text_kw=text.keywords, text_eq=text.prompt_eq, 
+                                     text_label=text.tokens, text_enc=_text)
             return_value.update({
                 'mwp': mwp,
                 '_mwp_enc': mwp  #: Copy for internal use
@@ -260,7 +247,7 @@ class MathWordProblemGenerator(EPT):
 
         return return_value
     
-    def reconstruct_mwp_step201(self, copy_ratio: float, text: Text, mwp: Prediction) -> Text:
+    def reconstruct_mwp_step201(self, copy_ratio: float, text: Text, mwp: Union[Prediction, Label]) -> Text:
         ### TODO: 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
         with torch.no_grad():
             concat_mwps = []
@@ -331,8 +318,9 @@ class MathWordProblemGenerator(EPT):
 
         return external, return_value
 
-    def forward_equation(self, copy_ratio: float, text: Text, mwp: Prediction, equation: Equation = None, beam: int = 3,
-                         **kwargs) -> Tuple[dict, dict]:
+
+    def forward_equation(self, copy_ratio: float, text: Text, mwp: Union[Prediction, Label], equation: Equation = None, 
+                         beam: int = 3, **kwargs) -> Tuple[dict, dict]:
 
         # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
         new_text = self.reconstruct_mwp_step201(copy_ratio, text, mwp)
