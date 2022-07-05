@@ -387,8 +387,8 @@ class SupervisedTrainer(Trainable):
                     pairs = dict(
                         equation=(item.equation, output['equation'][b]),
                         mwp=(
-                            item.text.raw, 
-                            output['mwp'][b].to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['prediction']
+                            item.text.raw,
+                            output['mwp'][b].flatten().to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['target']
                         )
                     )
 
