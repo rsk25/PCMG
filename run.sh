@@ -20,12 +20,10 @@ do
 	echo -e "\033[33mLearner \033[0m: COUNT=1; GPU=1"
 
 	killall -9 -r 'ray::'
-	python train_model.py -name $EXPNAME\
-	  -data $DATA -exp $EXPERIMENT -model MathGenerator -enc $ENCODER \
-	  -cpu 1 -gpu 1 -iter $EPOCH -bsz 16 -lr 0.000625 0.00088 0.00125 0.00176 -warmup $WARMUP -win 0
-#	python train_model.py -name $EXPNAME\
-#	  -data $DATA -exp $EXPERIMENT -model EPT SWAN SWAN_A SWAN_B SWAN_P1 -enc $ENCODER \
-#	  -cpu 1 -gpu 1 -iter $EPOCH -bsz 16 -lr 0.000625 0.00088 0.00125 0.00176 -warmup $WARMUP -win 3
+	python train_model_debug.py -name $EXPNAME \
+		-data $DATA -exp $EXPERIMENT -model EPT-G\
+		-enc $ENCODER -cpu 1 -gpu 1 -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP\
+		-ids 1 -cr 0 -da false
 
 	RECENT=$(ls ./runs/new_pen_${EXPNAME}_* -1dt | head -n 1)
 	if [[ "${SUBSET_TYPE}" == *-fold0 ]]
