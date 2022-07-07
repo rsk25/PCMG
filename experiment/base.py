@@ -7,7 +7,7 @@ from common.const.operand import VAR_FORMAT, VAR_MAX
 from common.data import Equation, Example
 from common.dataset import Dataset
 from common.pen.solve import Solver
-from model import SWAN
+from model import MathWordProblemGenerator
 
 
 _VAR_NAMES = [VAR_FORMAT % i for i in range(VAR_MAX)]
@@ -59,7 +59,7 @@ def _compute_tree_edit_distance(a, b):
 
 
 class ExperimentBase(abc.ABC):
-    def __init__(self, module: SWAN, dataset: Dataset, batch_size: int = 4, **solver_args):
+    def __init__(self, module: MathWordProblemGenerator, dataset: Dataset, batch_size: int = 4, **solver_args):
         self._module = module
         self._dataset = dataset
         self._batch_size = batch_size
@@ -191,7 +191,7 @@ class ExperimentWithTreeChange(ExperimentBase, abc.ABC):
 
 
 class ExperimentWithCorrectnessChange(ExperimentBase, abc.ABC):
-    def __init__(self, module: SWAN, dataset: Dataset, batch_size: int = 4, **solver_args):
+    def __init__(self, module: MathWordProblemGenerator, dataset: Dataset, batch_size: int = 4, **solver_args):
         super().__init__(module, dataset, batch_size, **solver_args)
         self._is_answer_required = True
 
