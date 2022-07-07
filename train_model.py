@@ -14,7 +14,8 @@ from common.trial import trial_dirname_creator_generator
 from learner import *
 from model import MODELS, MODEL_CLS
 
-GPU_IDS = ""
+
+GPU_IDS = "0,1,2,3"
 CPU_FRACTION = 1.0
 GPU_FRACTION = 0.5
 
@@ -167,7 +168,7 @@ if __name__ == '__main__':
     # Set GPU device
     environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
-    if args.num_gpu_ids == 0:
+    if args.num_gpu == 0:
         torch.cuda.is_available = lambda: False
 
     # Enable logging system
