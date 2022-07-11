@@ -443,7 +443,7 @@ class SupervisedTrainer(Trainable):
             report.update({'loss_' + key: value for key, value in losses.items()})
 
             # Add to report (cast to float to avoid memory leak)
-            reports.append({key: float(value) for key, value in report.items()})
+            reports.append({key: float(value) for key, value in report.items() if key != 'seq'})
 
             # Run Backward prop.
             total_loss.backward()
