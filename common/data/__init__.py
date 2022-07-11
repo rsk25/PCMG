@@ -148,9 +148,12 @@ class Example(TypeBatchable):
                 eqn_tgt = self.equation
             result.update(eqn_tgt.accuracy_of(kwargs.pop('equation')))
 
-        # if 'mwp' in kwargs:
-        #     mwp_cnt = self.text.tokens.num_corrects(kwargs['mwp'])
-        #     result.update(_compute_accuracy_from_list(mwp_cnt, key='mwp_generated'))
+        if 'mwp' in kwargs:
+            if 'mwp_tgt' in kwargs:
+                mwp_tgt = kwargs.pop('mwp_tgt')
+            else:
+                mwp_tgt = self.text.tokens
+            result.update(mwp_tgt.accuracy_of(kwargs.pop('mwp')))
 
         return result
 
@@ -167,6 +170,10 @@ class Example(TypeBatchable):
             else:
                 eqn_tgt = self.equation
             result.update(eqn_tgt.smoothed_cross_entropy(kwargs.pop('equation'), smoothing=0.01))
+
+        if 'mwp' in kwargs:
+            mwp_tgt = self.text.tokens
+            result.update(mwp=mwp_tgt.smoothed_cross_entropy(kwargs.pop('mwp'), smoothing=0.01))
 
         if 'kw_logits' in kwargs:
             ### The reason we use KL Divergence is because we do not have a dataset this model can use to learn.
