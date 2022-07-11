@@ -11,7 +11,6 @@ from common.data import Encoded, Text, Label, label
 from common.torch.util import stack_tensors
 from model.base.chkpt import *
 
-
 class MWPDecoder(CheckpointingModule):
     """
     Base model for equation generation/classification (Abstract class)
@@ -107,12 +106,6 @@ class MWPDecoder(CheckpointingModule):
         sample = new_sample_hard - new_sample_soft.detach() + new_sample_soft if train else new_sample_hard
         select = map(bool, sample.tolist())
         selected_kws = [w for w, s in zip(new_kw_tok, select) if s]
-        # # compute the masked keyword embeddings (wte==WordTokenEmbeddings)
-        # kw_emb = self.embedding(torch.LongTensor(new_kw_tok).to(self.device)) # dim = T x D
-        # if train:
-        #     kw_emb_masked = kw_emb * sample.unsqueeze(1).expand_as(kw_emb)
-        # else:
-        #     kw_emb_masked = kw_emb[sample.bool()]
 
         return kw_logits, selected_kws
 
@@ -129,11 +122,9 @@ class MWPDecoder(CheckpointingModule):
             context_input = Label.concat(tmp, equations, dim=1)
             context_len = context_input.shape[-1]
             input_ids = Label.concat(prefix, context_input, target, dim=1)
-        # Extend target with prefix. [B, D] -> [B, P+T+D]
-        input_ids_copy = input_ids.copy()
-        input_ids_for_debug = input_ids_copy.flatten().to_human_readable(converter=partial(self.tokenizer.decode, skip_special_tokens=True))['target']
-        return input_ids, context_len, input_ids_for_debug
-
+        # input_ids_copy = input_ids.copy()
+        # input_ids_for_debug = input_ids_copy.flatten().to_human_readable(converter=partial(self.tokenizer.decode, skip_special_tokens=True))['target']
+        return input_ids, context_len
 
     def build_input(self, text_keywords, text_equations, text_label, train: bool, no_equations: bool):
         selected_kws_list = []
@@ -150,7 +141,7 @@ class MWPDecoder(CheckpointingModule):
         kw_logits_batch = stack_tensors(kw_logits_list, pad_value=PAD_ID)
         assert kw_logits_batch.shape[0] == len(kw_batch)
         
-        input_ids, context_len, _ = self._create_input_ids(selected_kws_batch, text_equations, text_label, no_equations=no_equations)
+        input_ids, context_len = self._create_input_ids(selected_kws_batch, text_equations, text_label, no_equations=no_equations)
         assert input_ids.is_batched
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)

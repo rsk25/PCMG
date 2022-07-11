@@ -19,6 +19,7 @@ from preproc.num_parse import find_numbers
 from .pg_head import PointerGeneratorHead
 from .mwp_decoder import MWPDecoder
 
+
 _OPERATOR_EXCLUDED = {OPR_NEW_EQN_ID, OPR_NEW_VAR_ID}
 
 
@@ -210,7 +211,7 @@ class MathWordProblemGenerator(EPT):
     def encode_text_step101(self, text: Text) -> dict:
         text_vec, num_enc = self._encode(text.to(self.device))
         return dict(_text=text_vec, _number=num_enc)
-
+    
     def generate_mwp_step102(self, text: Text, beam: int = 3, _text: Encoded = None, enforce_training: bool = False, **kwargs) -> dict:
         return_value = {}
 
@@ -238,7 +239,7 @@ class MathWordProblemGenerator(EPT):
             })
 
         return return_value
-    
+
     def reconstruct_mwp_step201(self, copy_ratio: float, text: Text, mwp: Union[Prediction, Label]) -> Text:
         ### TODO: 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
         with torch.no_grad():
