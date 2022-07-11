@@ -190,8 +190,8 @@ class SupervisedTrainer(Trainable):
 
         # Run evaluation periodically
         executed_split = {}
-        if self._copy_ratio > 0:
-            self._copy_ratio -= self._decrement ### for each step, decrease copy ratio of gold text
+        # if self._copy_ratio > 0:
+        #     self._copy_ratio -= self._decrement ### for each step, decrease copy ratio of gold text
         iter_after_pretrain = self._iteration + 1
 
         for key, config in self._eval_configs.items():
