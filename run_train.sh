@@ -22,7 +22,7 @@ echo -e "\033[33mLearner \033[0m: COUNT=1; GPU=1"
 
 killall -9 -r 'ray::'
 python train_model.py -name $EXPNAME -data $DATA -exp $EXPERIMENT -model EPT-G -enc $ENCODER \
-	-cpu 1 -gpu 1 -ids $GPU_IDS -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP \
+	-cpu 4 -gpu 1 -ids $GPU_IDS -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP \
 	-cr 0 -da false
 
 RECENT=$(ls ./runs/new_pen_${EXPNAME}_* -1dt | head -n 1)
