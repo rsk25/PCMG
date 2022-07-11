@@ -10,6 +10,7 @@ from ray.tune.trainable import Trainable
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 from yaml import dump as yaml_dump
+import time
 
 from common.const.model import MDL_COPY_RATIO, MDL_DECREMENTER, MDL_ENCODER, MDL_KEYWORD, LOSS_KL_COEF, LOSS_KL_PRIOR
 from common.const.pad import FLOAT_NAN, PAD_ID
@@ -377,11 +378,15 @@ class SupervisedTrainer(Trainable):
 
         output_pairs = []
         with torch.no_grad():
-            for batch in self._dataset.get_minibatches(self._batch_size, for_testing=True):
+            for i, batch in enumerate(self._dataset.get_minibatches(self._batch_size, for_testing=True)):
+                # start_time = time.perf_counter()
                 output = self._model.forward(copy_ratio=self._copy_ratio, 
                                              text=batch.text.to(self._model.device),
                                              beam=self._beam_eqn)
+                # end_time = time.perf_counter()
+                # print(f"Model evaluation for {i}th batch took: {end_time - start_time} sec.")
 
+                # start_time = time.perf_counter()
                 for b in range(batch.batch_size):
                     item = batch.item_of_batch(b)
                     pairs = dict(
@@ -394,9 +399,11 @@ class SupervisedTrainer(Trainable):
 
                     output_pairs.append((item, pairs))
 
+            # start_time = time.perf_counter()
             results = self._tester.check(output_pairs, tokenizer=tokenizer)
             self._record_evaluation_output(name, results)
-
+            # end_time = time.perf_counter()
+            # print(f"Recording results for {i}th batch took: {end_time - start_time} sec.")
         # Remove 'dump' key before returning
         results.pop('dump')
         return results
@@ -408,7 +415,7 @@ class SupervisedTrainer(Trainable):
 
     def _update_module(self) -> dict:
         reports = []
-        for batch in self._dataset.get_minibatches(self._batch_size):
+        for i, batch in enumerate(self._dataset.get_minibatches(self._batch_size)):
             # ---- Input ----
             # text: Text [B, S]
             # equation: Equation [B, T]
@@ -418,7 +425,10 @@ class SupervisedTrainer(Trainable):
             # num_expl?: B-List of Prediction [N, D]
             # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
             # var_target?: Label [B, VD]
+            # start_time = time.perf_counter()
             out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
+            # end_time = time.perf_counter()
+            # print(f"Model evaluation for {i}th batch took: {end_time - start_time} sec.")
 
             # Compute accuracy of tokens
             with torch.no_grad():
