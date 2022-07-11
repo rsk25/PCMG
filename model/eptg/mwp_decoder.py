@@ -207,7 +207,7 @@ class MWPDecoder(CheckpointingModule):
 
         # Compute keyword embedding and logits
         word_emb, full_emb, prefix_len, kw_logits = self.build_input(text_keywords, text_equations, 
-                                                                     text_label, self.training, no_equations=True)
+                                                                     text_label, self.training, no_equations=False)
 
         # Compute hidden state vectors
         encoded, cached = self.build_context(full_emb, text_enc, cached)
