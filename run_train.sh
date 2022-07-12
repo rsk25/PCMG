@@ -57,14 +57,3 @@ then
 		fi
 	done
 
-# 	# Run fold evaluation
-# 	for i in 0 1 2 3 4
-# 	do
-# 		echo RUN FOR fold$i
-# 		python test_model.py -data $DATA -exp ${EXPERIMENT}-fold${i} -model ${RECENT}/*-fold${i} -ntr 500 -smp 50 -cpu 1 -gpu 0.5
-# 	done
-# else
-# 	# Run evaluation
-# 	python test_model.py -data $DATA -exp $EXPERIMENT -model ${RECENT}/best_* -ntr 500 -smp 50 -cpu 1 -gpu 0.5
-# fi
-
