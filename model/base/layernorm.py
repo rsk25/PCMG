@@ -21,6 +21,8 @@ class MaskedLayerNorm(LayerNorm):
 
         # Normalize vectors
         normalized = super().forward(masked_vector)
+        if flat_vector.dtype is torch.float16:
+            normalized = normalized.half()
 
         # Pad with zeros for masked position
         new_flat_vector = torch.zeros_like(flat_vector)
