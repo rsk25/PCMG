@@ -321,12 +321,17 @@ class SupervisedTrainer(Trainable):
         if self._grad_clip is not None and self._grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._grad_clip)
 
+        skip_lr_sched = True
         if self._optimizer is not None:
-            self._optimizer.step()
-        if self._scheduler is not None:
+            scaler.step(self._optimizer)
+            scale = scaler.get_scale()
+            scaler.update()
+            skip_lr_sched = (scale > scaler.get_scale())
+        if self._scheduler is not None and not skip_lr_sched:
             self._scheduler.step()
-
+        
         self._model.zero_grad()
+
 
     def _after_update(self) -> dict:
         metric = {}
@@ -426,17 +431,16 @@ class SupervisedTrainer(Trainable):
             # num_expl?: B-List of Prediction [N, D]
             # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
             # var_target?: Label [B, VD]
-            # start_time = time.perf_counter()
-            out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
-            # end_time = time.perf_counter()
-            # print(f"Model evaluation for {i}th batch took: {end_time - start_time} sec.")
+            
+            with torch.cuda.amp.autocast():
+                out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
+
+                # Compute loss
+                losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
 
             # Compute accuracy of tokens
             with torch.no_grad():
                 report = batch.accuracy_of(**out_dict)
-
-            # Compute loss
-            losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
 
             # Build sum of losses
             total_loss = sum(losses.values())
@@ -447,8 +451,11 @@ class SupervisedTrainer(Trainable):
             reports.append({key: float(value) for key, value in report.items() if key != 'seq'})
 
             # Run Backward prop.
-            total_loss.backward()
+            scaler.scale(total_loss).backward()
+            #total_loss.backward()
             self._after_backprop()
+
+        
 
         report = merge_reports(reports)
         report[TIMESTEPS_THIS_ITER] = len(reports)
