@@ -179,8 +179,8 @@ class Example(TypeBatchable):
             ### The reason we use KL Divergence is because we do not have a dataset this model can use to learn.
             ### Instead, we have set a prior distribution (Bernoulli) so we can use that to calculate the loss. 
             p = torch.sigmoid(kwargs.pop('kw_logits'))[:,0]
-            kw_kl_loss = p * torch.log( p / torch.tensor([kw_kl_prior]).to(device)) \
-                + (1-p) * torch.log( (1-p) / torch.tensor([1-kw_kl_prior]).to(device))
+            kw_kl_loss = p * torch.log( p / torch.as_tensor([kw_kl_prior]).to(device)) \
+                + (1-p) * torch.log( (1-p) / torch.as_tensor([1-kw_kl_prior]).to(device))
             kw_kl_loss = kw_kl_loss.mean()
 
             result['keyword_loss'] = kw_kl_coef * kw_kl_loss
