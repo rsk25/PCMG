@@ -22,6 +22,7 @@ from .const import *
 from .util import *
 
 SMOOTHED_CROSS_ENTROPY_LOSS = SmoothedCrossEntropyLoss(ignore_index=PAD_ID)
+scaler = torch.cuda.amp.GradScaler()
 
 
 class SupervisedTrainer(Trainable):
@@ -378,7 +379,7 @@ class SupervisedTrainer(Trainable):
 
         output_pairs = []
         with torch.no_grad():
-            for i, batch in enumerate(self._dataset.get_minibatches(self._batch_size, for_testing=True)):
+            for batch in self._dataset.get_minibatches(self._batch_size, for_testing=True):
                 # start_time = time.perf_counter()
                 output = self._model.forward(copy_ratio=self._copy_ratio, 
                                              text=batch.text.to(self._model.device),
@@ -415,7 +416,7 @@ class SupervisedTrainer(Trainable):
 
     def _update_module(self) -> dict:
         reports = []
-        for i, batch in enumerate(self._dataset.get_minibatches(self._batch_size)):
+        for batch in self._dataset.get_minibatches(self._batch_size):
             # ---- Input ----
             # text: Text [B, S]
             # equation: Equation [B, T]
