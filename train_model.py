@@ -66,7 +66,7 @@ def read_arguments():
     work.add_argument('--num-gpu', '-gpu', type=float, default=GPU_FRACTION)
 
     setup = parser.add_argument_group('Optimization setup')
-    setup.add_argument('--float-type','--fp', type=int, choices=[16,32], default=[32])
+    setup.add_argument('--float-type','-fp', type=int, choices=[16,32], default=32)
     setup.add_argument('--opt-lr', '-lr', type=float, default=[0.00176], nargs='+')
     setup.add_argument('--opt-beta1', '-beta1', type=float, default=0.9)
     setup.add_argument('--opt-beta2', '-beta2', type=float, default=0.999)
@@ -105,6 +105,7 @@ def build_configuration(args):
         KEY_BATCH_SZ: args.batch_size,
         KEY_BEAM: args.beam_expr,
         KEY_BEAM_DESC: args.beam_expl,
+        KEY_FP: args.float_type,
         KEY_DATASET: str(Path(args.dataset).absolute()),
         KEY_MODEL: {
             MODEL_CLS: tune.grid_search(args.model),

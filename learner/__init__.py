@@ -45,6 +45,8 @@ class SupervisedTrainer(Trainable):
         self._scheduler: Optional[LambdaLR] = None
         self._grad_clip: float = 0.0
 
+        self._fp: int = 32
+
         self._kl_prior: float = 0.0
         self._kl_coef: float = 0.0
 
@@ -137,6 +139,7 @@ class SupervisedTrainer(Trainable):
 
         # Set batch size
         self._batch_size = new_config[KEY_BATCH_SZ]
+
         self._kl_prior = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_PRIOR]
         self._kl_coef = new_config[KEY_MODEL][MDL_KEYWORD][LOSS_KL_COEF]
         self._decrement = new_config[KEY_MODEL][MDL_DECREMENTER]
@@ -162,6 +165,7 @@ class SupervisedTrainer(Trainable):
         self._dataset.select_items_with_file(self._train_config[KEY_SPLIT_FILE])
 
         # Build models
+        self._fp = new_config[KEY_FP]
         self._model = model_create(new_config[KEY_MODEL].copy())
         if torch.cuda.is_available():
             self._model.cuda()
@@ -321,12 +325,15 @@ class SupervisedTrainer(Trainable):
         if self._grad_clip is not None and self._grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._grad_clip)
 
-        skip_lr_sched = True
+        skip_lr_sched = False
         if self._optimizer is not None:
-            scaler.step(self._optimizer)
-            scale = scaler.get_scale()
-            scaler.update()
-            skip_lr_sched = (scale > scaler.get_scale())
+            if self._fp == 16:
+                scaler.step(self._optimizer)
+                scale = scaler.get_scale()
+                scaler.update()
+                skip_lr_sched = (scale > scaler.get_scale())
+            else:
+                self._optimizer.step()
         if self._scheduler is not None and not skip_lr_sched:
             self._scheduler.step()
         
@@ -385,14 +392,11 @@ class SupervisedTrainer(Trainable):
         output_pairs = []
         with torch.no_grad():
             for batch in self._dataset.get_minibatches(self._batch_size, for_testing=True):
-                # start_time = time.perf_counter()
                 output = self._model.forward(copy_ratio=self._copy_ratio, 
                                              text=batch.text.to(self._model.device),
                                              beam=self._beam_eqn)
-                # end_time = time.perf_counter()
-                # print(f"Model evaluation for {i}th batch took: {end_time - start_time} sec.")
+                
 
-                # start_time = time.perf_counter()
                 for b in range(batch.batch_size):
                     item = batch.item_of_batch(b)
                     pairs = dict(
@@ -405,11 +409,8 @@ class SupervisedTrainer(Trainable):
 
                     output_pairs.append((item, pairs))
 
-            # start_time = time.perf_counter()
             results = self._tester.check(output_pairs, tokenizer=tokenizer)
             self._record_evaluation_output(name, results)
-            # end_time = time.perf_counter()
-            # print(f"Recording results for {i}th batch took: {end_time - start_time} sec.")
         # Remove 'dump' key before returning
         results.pop('dump')
         return results
@@ -432,12 +433,18 @@ class SupervisedTrainer(Trainable):
             # var_expl?: B-List of Prediction [V, D] or Prediction [B, VD]
             # var_target?: Label [B, VD]
             
-            with torch.cuda.amp.autocast():
+            if self._fp == 16:
+                with torch.cuda.amp.autocast():
+                    out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
+
+                    # Compute loss
+                    losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
+            else:
                 out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
 
                 # Compute loss
                 losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
-
+            
             # Compute accuracy of tokens
             with torch.no_grad():
                 report = batch.accuracy_of(**out_dict)
@@ -451,11 +458,12 @@ class SupervisedTrainer(Trainable):
             reports.append({key: float(value) for key, value in report.items() if key != 'seq'})
 
             # Run Backward prop.
-            scaler.scale(total_loss).backward()
+            if self._fp == 16:
+                scaler.scale(total_loss).backward()
+            else:
+                total_loss.backward()
             #total_loss.backward()
             self._after_backprop()
-
-        
 
         report = merge_reports(reports)
         report[TIMESTEPS_THIS_ITER] = len(reports)
