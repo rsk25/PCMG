@@ -17,7 +17,7 @@ from model import MODELS, MODEL_CLS
 
 GPU_IDS = "0,1,2,3"
 CPU_FRACTION = 1.0
-GPU_FRACTION = 0.5
+GPU_FRACTION = 1.0
 
 def restricted_float(x):
     try:
@@ -66,6 +66,7 @@ def read_arguments():
     work.add_argument('--num-gpu', '-gpu', type=float, default=GPU_FRACTION)
 
     setup = parser.add_argument_group('Optimization setup')
+    setup.add_argument('--float-type','--fp', type=int, choices=[16,32], default=[32])
     setup.add_argument('--opt-lr', '-lr', type=float, default=[0.00176], nargs='+')
     setup.add_argument('--opt-beta1', '-beta1', type=float, default=0.9)
     setup.add_argument('--opt-beta2', '-beta2', type=float, default=0.999)
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
     logger.info('========================= CMD ARGUMENT =============================')
     logger.info(' '.join(argv))
-    init(num_cpus=cpu_count(), num_gpus=device_count())
+    init(num_cpus=cpu_count(), num_gpus=args.num_gpu)
 
     experiment_name = get_experiment_name(args)
     stop_condition = build_stop_condition(args)

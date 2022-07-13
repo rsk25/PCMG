@@ -21,39 +21,6 @@ echo -e "\033[33mEpoch   \033[0m: $EPOCH"
 echo -e "\033[33mLearner \033[0m: COUNT=1; GPU=1"
 
 killall -9 -r 'ray::'
-python train_model.py -name $EXPNAME -data $DATA -exp $EXPERIMENT -model EPT-G -enc $ENCODER \
-	-cpu 4 -gpu 1 -ids $GPU_IDS -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP \
+python train_model.py -name $EXPNAME -data $DATA -exp $EXPERIMENT -model EPT-G -enc $ENCODER\
+	-cpu 4 -gpu 1 -ids $GPU_IDS -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP\
 	-cr 0 -da false
-
-RECENT=$(ls ./runs/new_pen_${EXPNAME}_* -1dt | head -n 1)
-if [[ "${SUBSET_TYPE}" == *-fold0 ]]
-then
-	# Run fold training
-	SUBSETS=$(echo $SUBSET_TYPE | cut -d- -f1)
-	EXPNAME=${SUBSETS}-folds_${ENCODER_SIZE}_$2
-	EXPERIMENT=./resource/experiments/${SUBSETS}
-	killall -9 -r 'ray::'
-	python train_fold.py -name $EXPNAME -exp ${EXPERIMENT}-fold* -model ${RECENT}/best_*/config.pkl
-
-	# Rename fold files
-	RECENT=$(ls ./runs/pen_${EXPNAME}_* -1dt | head -n 1)
-	for DIR in `ls -1d ${RECENT}/*`
-	do
-		if [[ -f $DIR ]]; then continue; fi
-		if [[ ! -f $DIR/config.pkl ]]
-		then
-			mv ${DIR}/checkpoint_*/*.pt ${DIR}/
-			cp ${DIR}/params.pkl ${DIR}/config.pkl
-		fi
-
-		BASENAME=`basename $DIR`
-		if [[ "$BASENAME" == *"fold"* ]]
-		then
-			echo "$DIR EXISTS"
-		else
-			NEW_NAME=$BASENAME
-			NEW_NAME=$(echo $NEW_NAME | cut -d- -f1)-fold$(($(echo $NEW_NAME | cut -d- -f2 | cut -d_ -f2 | sed 's/^0\+//;s/^$/0/') % 5))
-			mv ${DIR} ${RECENT}/${NEW_NAME}
-		fi
-	done
-
