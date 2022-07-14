@@ -128,7 +128,8 @@ def build_configuration(args):
         },
         KEY_RESOURCE: {
             KEY_GPU: args.num_gpu,
-            KEY_CPU: args.num_cpu
+            KEY_CPU: args.num_cpu,
+            KEY_IDS: args.gpu_ids
         },
         KEY_EXPERIMENT: build_experiment_config(args),
         KEY_GRAD_CLIP: args.opt_grad_clip,
@@ -169,7 +170,7 @@ if __name__ == '__main__':
             
     # Set GPU device
     environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+    environ["CUDA_VISIBLE_DEVICES"]=args.gpu_ids
     if args.num_gpu == 0:
         torch.cuda.is_available = lambda: False
 

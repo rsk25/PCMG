@@ -28,6 +28,7 @@ KEY_BATCH_SZ = 'batch_size'
 KEY_RESOURCE = 'resource'
 KEY_CPU = 'num_cpus'
 KEY_GPU = 'num_gpus'
+KEY_IDS = 'gpu_ids'
 
 # Key for floating point type
 KEY_FP = 'fp'
