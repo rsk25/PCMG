@@ -58,6 +58,7 @@ class Dataset:
         self._path = path
         # Lang Model applied in this dataset
         self._langmodel = langmodel
+        self._langmodel_name = self._langmodel.replace('/','_')
         self.tokenizer = AutoTokenizer.from_pretrained(self._langmodel)
         self.nlp = spacy.load("en_core_web_sm")
         # RNG for shuffling
@@ -122,11 +123,11 @@ class Dataset:
 
     @property
     def cached_path(self) -> Path:
-        return Path(f'{self._path}.cached')
+        return Path(f'{self._path}_{self._langmodel_name}.cached')
 
     @property
     def cache_lock_path(self) -> Path:
-        return Path(f'{self._path}.lock')
+        return Path(f'{self._path}_{self._langmodel_name}.lock')
 
     @property
     def num_items(self) -> int:
