@@ -322,19 +322,22 @@ class SupervisedTrainer(Trainable):
             self._scheduler = None
 
     def _after_backprop(self):
+
+        if self._fp == 16:
+            scaler.unscale_(self._optimizer)
+
         if self._grad_clip is not None and self._grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._grad_clip)
 
         skip_lr_sched = False
-        if self._optimizer is not None:
-            if self._fp == 16:
-                scaler.step(self._optimizer)
-                scale = scaler.get_scale()
-                scaler.update()
-                skip_lr_sched = (scale > scaler.get_scale())
-            else:
-                self._optimizer.step()
-        if self._scheduler is not None and not skip_lr_sched:
+        if self._fp == 16:
+            scaler.step(self._optimizer)
+            scale = scaler.get_scale()
+            scaler.update()
+            skip_lr_sched = (scale > scaler.get_scale())
+        else:
+            self._optimizer.step()
+        if not skip_lr_sched:
             self._scheduler.step()
         
         self._model.zero_grad()
