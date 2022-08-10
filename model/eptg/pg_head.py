@@ -78,7 +78,7 @@ class PointerGeneratorHead(nn.Module):
         return after_logsig, after_logsig - before_sigmoid
 
     def forward(self, text: Encoded, text_label: Label, decoded: Encoded, decoder_embedding: Encoded,
-                prev_key: torch.Tensor = None, pad_value: int = 0) -> Tuple[torch.Tensor, tuple]:
+                prev_key: torch.Tensor = None, no_copying: bool = False, pad_value: int = 0) -> Tuple[torch.Tensor, tuple]:
         # Compute distribution of token generation
         if hasattr(self, 'hidden_to_embed'):
             decoded_vector = self.hidden_to_embed(decoded.vector)
@@ -96,25 +96,26 @@ class PointerGeneratorHead(nn.Module):
 
         # Compute generation probability
         gen_prob, copy_prob = self._generation_probability(text_attented, decoded.vector, decoder_embedding.vector)
-
-        # Expand index to [B, T, S]
-        text_label = text_label.indices
-
-        # Copying probability
-        copy_attn = (attn_score + copy_prob).exp()
         
-        if torch.are_deterministic_algorithms_enabled():
-            # Use manual but deterministic algorithm (scatter_add is non-deterministic on CUDA)
-            copy_dist = torch.zeros_like(gen_dist)  # [B, T, V]
-            batch_sz, text_len = text_label.shape
-            for b in range(batch_sz):
-                for s in range(text_len):
-                    text_bs = text_label[b, s].item()
-                    if text_bs == PAD_ID:
-                        continue
-                    copy_dist[b, :, text_bs] += copy_attn[b, :, s]
-        else:
-            copy_dist = torch.zeros_like(gen_dist).scatter_add(dim=-1, index=text_label.unsqueeze(1).expand(copy_attn.shape), src=copy_attn)
+        if not no_copying:
+            # Expand index to [B, T, S]
+            text_label = text_label.indices
+
+            # Copying probability
+            copy_attn = (attn_score + copy_prob).exp()
+            
+            if torch.are_deterministic_algorithms_enabled():
+                # Use manual but deterministic algorithm (scatter_add is non-deterministic on CUDA)
+                copy_dist = torch.zeros_like(gen_dist)  # [B, T, V]
+                batch_sz, text_len = text_label.shape
+                for b in range(batch_sz):
+                    for s in range(text_len):
+                        text_bs = text_label[b, s].item()
+                        if text_bs == PAD_ID:
+                            continue
+                        copy_dist[b, :, text_bs] += copy_attn[b, :, s]
+            else:
+                copy_dist = torch.zeros_like(gen_dist).scatter_add(dim=-1, index=text_label.unsqueeze(1).expand(copy_attn.shape), src=copy_attn)
 
         # Generating probability (P_gen * Vocab)
         gen_dist = (gen_dist + gen_prob).exp()
