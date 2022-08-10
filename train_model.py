@@ -45,7 +45,7 @@ def read_arguments():
     env.add_argument('--stop-conditions', '-stop', type=str, nargs='*', default=[])
 
     model = parser.add_argument_group('Model')
-    model.add_argument('--model', '-model', type=str, choices=MODELS.keys(), default=['EPT'], nargs='+')
+    model.add_argument('--model', '-model', type=str, choices=MODELS.keys(), default=['EPT-G'], nargs='+')
     model.add_argument('--encoder', '-enc', type=str, default=DEF_ENCODER)
     model.add_argument('--ept-pretrained-path','-eptP', type=str, default=None)
     model.add_argument('--equation-hidden', '-eqnH', type=int, default=0)
@@ -88,7 +88,9 @@ def build_experiment_config(args, exp_dir: str = None):
             continue
 
         experiment_dict = {KEY_SPLIT_FILE: str(file.absolute())}
-        if file.name != KEY_TRAIN:
+        if args.max_iter == 1:
+            experiment_dict[KEY_EVAL_PERIOD] = args.max_iter
+        elif file.name != KEY_TRAIN:
             experiment_dict[KEY_EVAL_PERIOD] = args.max_iter // 5 if file.name == KEY_DEV else args.max_iter
 
         experiments[file.name] = experiment_dict
@@ -203,22 +205,36 @@ if __name__ == '__main__':
     best_configs = {}
     best_trials = {}
 
-    for trial in trials:
+    if len(trials) > 1:
+        for trial in trials:
+            if trial.status != Trial.TERMINATED:
+                logger.info('\tTrial %10s (%-40s): FAILED', trial.trial_id, trial.experiment_tag)
+                continue
+
+            last_score = trial.last_result['dev_correct']
+            logger.info('\tTrial %10s (%-40s): Correct %.4f on dev. set', trial.trial_id, trial.experiment_tag, last_score)
+
+            if is_nan_or_inf(last_score):
+                continue
+
+            model_cls = trial.config[KEY_MODEL][MODEL_CLS]
+            if best_scores[model_cls] < last_score:
+                best_scores[model_cls] = last_score
+                best_configs[model_cls] = trial.config
+                best_trials[model_cls] = trial
+
+    else:
+        trial = trials[0]
         if trial.status != Trial.TERMINATED:
             logger.info('\tTrial %10s (%-40s): FAILED', trial.trial_id, trial.experiment_tag)
-            continue
 
         last_score = trial.last_result['dev_correct']
         logger.info('\tTrial %10s (%-40s): Correct %.4f on dev. set', trial.trial_id, trial.experiment_tag, last_score)
 
-        if is_nan_or_inf(last_score):
-            continue
-
         model_cls = trial.config[KEY_MODEL][MODEL_CLS]
-        if best_scores[model_cls] < last_score:
-            best_scores[model_cls] = last_score
-            best_configs[model_cls] = trial.config
-            best_trials[model_cls] = trial
+        best_scores[model_cls] = last_score
+        best_configs[model_cls] = trial.config
+        best_trials[model_cls] = trial
 
     # Record the best configuration
     for cls, config in best_configs.items():
