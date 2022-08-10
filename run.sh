@@ -20,7 +20,6 @@ echo -e "\033[33mEncoder \033[0m: $ENCODER"
 echo -e "\033[33mEpoch   \033[0m: $EPOCH"
 echo -e "\033[33mLearner \033[0m: COUNT=1; GPU=1"
 
-killall -9 -r 'ray::'
 python train_model.py -name $EXPNAME -data $DATA -exp $EXPERIMENT -model EPT-G -enc $ENCODER \
 	-cpu 1 -gpu 1 -ids $GPU_IDS -iter $EPOCH -bsz 16 -lr 0.00176 -warmup $WARMUP \
 	-cr 0 -da false
@@ -32,7 +31,6 @@ then
 	SUBSETS=$(echo $SUBSET_TYPE | cut -d- -f1)
 	EXPNAME=${SUBSETS}-folds_${ENCODER_SIZE}_$2
 	EXPERIMENT=./resource/experiments/${SUBSETS}
-	killall -9 -r 'ray::'
 	python train_fold.py -name $EXPNAME -exp ${EXPERIMENT}-fold* -model ${RECENT}/best_*/config.pkl
 
 	# Rename fold files
