@@ -396,9 +396,8 @@ class SupervisedTrainer(Trainable):
         with torch.no_grad():
             for batch in self._dataset.get_minibatches(self._batch_size, for_testing=True):
                 output = self._model.forward(copy_ratio=self._copy_ratio, 
-                                             text=batch.text.to(self._model.device),
-                                             beam=self._beam_eqn)
-                
+                                             beam=self._beam_eqn,
+                                             **batch.to(self._model.device).as_dict())
 
                 for b in range(batch.batch_size):
                     item = batch.item_of_batch(b)
@@ -465,7 +464,6 @@ class SupervisedTrainer(Trainable):
                 scaler.scale(total_loss).backward()
             else:
                 total_loss.backward()
-            #total_loss.backward()
             self._after_backprop()
 
         report = merge_reports(reports)
