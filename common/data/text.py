@@ -173,8 +173,10 @@ class Text(TypeTensorBatchable, TypeSelectable):
         keywords_enc = tokenizer.encode(keywords_text, add_special_tokens=False)
 
         # Extract Equations for text prompt
-        if len(raw['oldFormula']) > 1:
+        if type(raw['oldFormula']) is list and len(raw['oldFormula']) > 1:
             _eq = ', '.join(raw['oldFormula'])
+        elif type(raw['oldFormula']) is str:
+            _eq = raw['oldFormula']
         else:
             _eq = raw['oldFormula'][0]
         prompt_eq = tokenizer.encode(_eq, add_special_tokens=False)
@@ -196,5 +198,5 @@ class Text(TypeTensorBatchable, TypeSelectable):
             'tokens': self.tokens.to_human_readable(converter=text_converter),
             'numbers': self.numbers.to_human_readable(converter=_number_index_reader),
             'keywords': human_readable_form(self.keywords, converter=text_converter),
-            'prompt_eq': human_readable_form(self.prompt_eq)
+            'prompt_eq': human_readable_form(self.prompt_eq, converter=text_converter)
         }
