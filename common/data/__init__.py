@@ -28,14 +28,12 @@ class ExtraInfo(TypeBase):
     raw: Optional[dict]
 
     def __init__(self, item_id: str, answers: List[Dict[str, sympy.Number]], numbers: Dict[str, sympy.Number],
-                 variables: List[str], split: str = None, number_of_variables: int = 1, number_of_numbers: int = 1, raw: dict = None):
+                 variables: List[str], split: str = None, raw: dict = None):
         super().__init__()
         self.item_id = item_id
         self.answers = answers
         self.numbers = numbers
         self.variables = variables
-        self.number_of_variables = number_of_variables
-        self.number_of_numbers = number_of_numbers
         self.split = split
         self.raw = raw
 
@@ -47,12 +45,8 @@ class ExtraInfo(TypeBase):
         numbers = {num['key']: sympy.Number(num['value'])
                    for num in raw['numbers']}
 
-        number_of_numbers = len(numbers)
-        
-        number_of_variables = len(raw['equations']) if type(raw['equations']) is list else 1
-
         return ExtraInfo(item_id=raw['_id'], split=None, answers=answers, numbers=numbers, 
-                         variables=[], number_of_variables=number_of_variables, number_of_numbers=number_of_numbers, raw=raw)
+                         variables=[], raw=raw)
 
     def filter_answers(self) -> 'ExtraInfo':
         kwargs = self.as_dict()
