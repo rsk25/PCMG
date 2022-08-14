@@ -58,7 +58,7 @@ class KeywordEncoder(CheckpointingModule):
         return self.tokenizer.encode(string, add_special_tokens=False)
     
 
-    def _encode(self, label: Label) -> Encoded:
+    def encode(self, label: Label) -> Encoded:
         # Replace PAD_ID (-1) with pad of tokenizer
         model_out = self.model.forward(input_ids=label.pad_fill(self.pad_id),
                                     attention_mask=label.attn_mask_float).last_hidden_state
@@ -142,7 +142,7 @@ class KeywordEncoder(CheckpointingModule):
 
         # Compute keyword embedding and logits
         selected_kws, kw_logits = self.keywords_and_logits(text.keywords, self.training)
-        selected_kws_enc = self._encode(selected_kws)
+        selected_kws_enc = self.encode(selected_kws)
 
         return selected_kws_enc, selected_kws, kw_logits
 
