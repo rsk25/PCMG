@@ -121,7 +121,10 @@ class PointerGeneratorHead(nn.Module):
         gen_dist = (gen_dist + gen_prob).exp()
 
         # Add copying to generation & return as log-probability
-        logprob = (copy_dist + gen_dist).log()
+        if no_copying:
+            logprob = gen_dist.log()
+        else:
+            logprob = (copy_dist + gen_dist).log()
         logprob = logprob.masked_fill(torch.isfinite(logprob).logical_not(), NEG_INF)
         
         return logprob, (new_key,)
