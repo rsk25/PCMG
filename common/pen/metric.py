@@ -99,12 +99,12 @@ class COCOEvalCapModified(COCOEvalCap):
         self.setEvalImgs()
 
 
-def explanations_as_coco(items: Dict[str, List[str]]):
+def mwp_as_coco(items: Dict[str, List[str]]):
     coco = COCO()
     coco.dataset = {
-        'annotations': [{'id': '%s_%s' % (key, did), 'image_id': key, 'caption': expl}
-                        for key, expl_list in items.items()
-                        for did, expl in enumerate(expl_list)],
+        'annotations': [{'id': '%s_%s' % (key, did), 'image_id': key, 'caption': mwp}
+                        for key, mwp_list in items.items()
+                        for did, mwp in enumerate(mwp_list)],
         'images': [{'id': key} for key in items.keys()]
     }
     coco.createIndex()
@@ -112,8 +112,8 @@ def explanations_as_coco(items: Dict[str, List[str]]):
 
 
 def compute_metrics(references: Dict[str, List[str]], hypothesis: Dict[str, List[str]]) -> Dict[str, float]:
-    dataset = explanations_as_coco(references)
-    results = explanations_as_coco(hypothesis)
+    dataset = mwp_as_coco(references)
+    results = mwp_as_coco(hypothesis)
     coco_eval = COCOEvalCapModified(dataset, results)
     coco_eval.evaluate()
 
