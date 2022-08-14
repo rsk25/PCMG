@@ -446,9 +446,11 @@ class MathWordProblemGenerator(EPT):
         
         # Generate math word problem
         return_value.update(self.generate_mwp_step102(text=text, beam=beam_mwp, **return_value))
+        # if self.training:
+        #     print(f"prediction: {return_value['mwp'][0].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['prediction']}")
+        # else:
+        #     print(f"prediction: {return_value['mwp'][0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target']}")
 
-        # for b in range(text.shape[0]):
-        #     print(return_value['mwp'][b].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['prediction'])
         # Separate internal outputs
         external = {}
         for key in return_value:
@@ -464,8 +466,8 @@ class MathWordProblemGenerator(EPT):
         return_value = {}
 
         _info: List[ExtraInfo] = kwargs['info']
-        return_value.update(number_len=[info.number_of_numbers for info in _info],
-                            variable_len=[info.number_of_variables for info in _info])
+        return_value.update(number_len=[len(info.numbers.keys()) for info in _info],
+                            variable_len=[len(info.answers[0]) for info in _info])
 
         # (2-1) New Math Word Problem: Need to change Prediction class to Text class..
         new_text = self.reconstruct_mwp_step201(copy_ratio, text, mwp)
@@ -549,8 +551,7 @@ class MathWordProblemGenerator_NoPGN(MathWordProblemGenerator):
         input_ids, context_len = self.prompt_gen(selected_kws, text_equations, text_label, no_equations=False)
         assert input_ids.is_batched
 
-        # for b in range(text_label.shape[0]):
-        #     print(input_ids[b].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target'])
+        # print(f"prompt :{input_ids[0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode))['target']}")
 
         # Build token-type indices. [T] -> [1, T]
         token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
