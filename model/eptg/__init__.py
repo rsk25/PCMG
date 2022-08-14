@@ -189,15 +189,16 @@ class MathWordProblemGenerator(EPT):
             mwp_emb = mwp_emb[:, -1:]
 
         prefix_len = 0 if is_cached else context_len
-
+        
+        text_enc = self.mwpsource_hidden.encode(text_label)
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
         else:
             predicted, head_cache = \
                 self.mwp_pghead.forward(
-                    text=selected_kw_enc, 
-                    text_label=selected_kws,
+                    text=text_enc, 
+                    text_label=text_label,
                     decoded=mwp_enc[:, prefix_len:],
                     decoder_embedding=mwp_emb[:, prefix_len:],
                     prev_key=head_cache,
@@ -284,17 +285,19 @@ class MathWordProblemGenerator(EPT):
                                         concat_next_fn, is_all_finished, max_len, beam_size)
 
             # Select top-scored beam
-            new_mwps = Label.build_batch(*[item['text_label'][0]
+            new_mwps = Label.build_batch(*[item['target'][0]
                                            for item in batched_beams])
             return new_mwps
 
 
     def keyword_select_step101(self, text: Text):
         selected_kws_enc, selected_kws, kw_logits = self.mwpsource_hidden.forward(text)
-        return dict(selected_kws_enc=selected_kws_enc, selected_kws=selected_kws, kw_logits=kw_logits)
+        return dict(selected_kws_enc=selected_kws_enc, 
+                    selected_kws=selected_kws, 
+                    kw_logits=kw_logits)
     
     def generate_mwp_step102(self, text: Text, selected_kws_enc: Encoded, selected_kws: Label,
-                                beam: int = 3, **kwargs) -> dict:
+                            beam: int = 3, **kwargs) -> dict:
         return_value = {}
 
         if self.training:
@@ -318,7 +321,9 @@ class MathWordProblemGenerator(EPT):
             # 1-3-2. Run prediction
             print(f'generating MWP..\n')
             mwp = self._mwp_for_eval(selected_kws=selected_kws, text_equations=text.prompt_eq, 
-                                     selected_kw_enc=selected_kws_enc, **kwargs)
+                                     selected_kw_enc=selected_kws_enc, text_label=text.tokens,
+                                     **kwargs)
+
             return_value.update({
                 'mwp': mwp,
                 '_mwp_enc': mwp  #: Copy for internal use
@@ -327,7 +332,6 @@ class MathWordProblemGenerator(EPT):
         return return_value
 
     def reconstruct_mwp_step201(self, copy_ratio: float, text: Text, mwp: Union[Prediction, Label]) -> Text:
-        ### TODO: 100% -> 0% gold set에서 가져오도록 설계 (일종의 warmup)
         with torch.no_grad():
             concat_mwps = []
             concat_numbers = []
