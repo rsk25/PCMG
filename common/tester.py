@@ -34,16 +34,14 @@ class Tester:
             # (1) Collect generated MWPs if possible.
             expected, predicted = pair['mwp']
             result_dump_b['mwp_generated'] = predicted
-            id_prefix = item.info.item_id + '::%s'
+            id_prefix = item.info.item_id
 
             mwp_references.update({
-                id_prefix % key: mwp
-                for key, mwp in enumerate(expected)
+                id_prefix : expected
             })
 
             mwp_hypotheses.update({
-                id_prefix % key: mwp
-                for key, mwp in enumerate(predicted)
+                id_prefix : predicted
             })
 
             # (2) compute accuracy of the equation
@@ -71,7 +69,7 @@ class Tester:
             result_dumps.append(result_dump_b)
 
         
-        mwp_keys = sorted(mwp_references.keys())
+        mwp_keys = mwp_references.keys()
         mwp_hypotheses = {key: mwp_hypotheses.get(key, ['']) for key in mwp_keys}
 
         metric: dict = {key: float(value)

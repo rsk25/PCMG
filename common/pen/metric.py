@@ -75,9 +75,7 @@ class COCOEvalCapModified(COCOEvalCap):
         scorers = [
             (Bleu(4), ["Bleu_4"]),
             (Rouge(), "ROUGE_L"),
-            (BLEURT(), "BLEURT"),
-            (Cider(), "CIDEr")
-            # SPICE is excluded (we don't have any images!)
+            (BLEURT(), "BLEURT")
         ]
         # *** Modification end
 
@@ -99,12 +97,11 @@ class COCOEvalCapModified(COCOEvalCap):
         self.setEvalImgs()
 
 
-def mwp_as_coco(items: Dict[str, List[str]]):
+def mwp_as_coco(items: Dict[str, str]):
     coco = COCO()
     coco.dataset = {
-        'annotations': [{'id': '%s_%s' % (key, did), 'image_id': key, 'caption': mwp}
-                        for key, mwp_list in items.items()
-                        for did, mwp in enumerate(mwp_list)],
+        'annotations': [{'id': key, 'image_id': key, 'caption': mwp}
+                        for key, mwp in items.items()],
         'images': [{'id': key} for key in items.keys()]
     }
     coco.createIndex()

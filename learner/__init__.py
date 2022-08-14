@@ -404,8 +404,9 @@ class SupervisedTrainer(Trainable):
                     pairs = dict(
                         equation=(item.equation, output['equation'][b]),
                         mwp=(
-                            item.text.raw,
-                            output['mwp'][b].flatten().to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['target']
+                            tokenizer.decode(item.text.tokens.pad_fill(tokenizer.pad_token_id), skip_special_tokens=True).strip(),
+                            tokenizer.decode(output['mwp'][b].pad_fill(tokenizer.pad_token_id), skip_special_tokens=True).strip()
+                            #output['mwp'][b].flatten().to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['target']
                         )
                     )
 
