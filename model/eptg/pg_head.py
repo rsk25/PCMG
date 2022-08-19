@@ -19,10 +19,10 @@ class PointerGeneratorHead(nn.Module):
         # Single-head attention score layer
         self.encoder_attention = MultiheadAttentionWeights(**{MDL_Q_HIDDEN: hidden_dim, MDL_Q_HEAD: 1})
         if hidden_dim != embed_dim:
-            self.hidden_to_embed = torch.nn.Linear(hidden_dim, embed_dim)
+            self.hidden_to_embed = nn.Linear(hidden_dim, embed_dim)
 
         # Generation distribution layer
-        self.generation_dist = torch.nn.Linear(embed_dim, vocab_size)
+        self.generation_dist = nn.Linear(embed_dim, vocab_size)
         self.vocab_size = vocab_size
 
         # W_h h^*_t + W_s s_t + W_x x_t + b

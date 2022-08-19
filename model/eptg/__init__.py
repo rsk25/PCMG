@@ -1,5 +1,6 @@
 from typing import Tuple, List, Optional, Union
 from functools import partial
+from copy import copy
 
 import torch
 from numpy.random import Generator, PCG64, randint
@@ -48,6 +49,12 @@ class MathWordProblemGenerator(EPT):
         self._rng = Generator(PCG64(1))
 
         self.register_buffer('_prefix_prompt', torch.LongTensor(self.mwpsource_hidden.tokenizer.encode('generate:')[:-1]))
+
+
+    def _check_with_human_readable(self, obj) -> None:
+        obj_copy = obj.copy()
+        if isinstance(obj, Label):
+            print(self.mwpsource_hidden.tokenizer.decode(obj_copy.pad_fill(self.mwpsource_hidden.tokenizer.pad_token_id), skip_special_tokens=True).strip())
 
 
     @property
@@ -100,8 +107,10 @@ class MathWordProblemGenerator(EPT):
             context_input = Label.concat(tmp, equations, dim=1)
             context_len = context_input.shape[-1]
             input_ids = Label.concat(prefix, context_input, target, dim=1)
-        # input_ids_copy = input_ids.copy()
-        # input_ids_for_debug = input_ids_copy.flatten().to_human_readable(converter=partial(self.tokenizer.decode, skip_special_tokens=True))['target']
+        
+        # self._check_with_human_readable(keywords[0])
+        # self._check_with_human_readable(tmp[0])
+        # self._check_with_human_readable(input_ids[0])
         return input_ids, context_len
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
@@ -131,6 +140,7 @@ class MathWordProblemGenerator(EPT):
         )
         # Truncate the prefix [B, D]
         encoded = Encoded(outputs.last_hidden_state, embedding.pad)
+        # outputs.last_hidden_state == outputs[0]
         # On evaluation, return cached output. otherwise None
         next_key_value = None if self.training else outputs.past_key_values
 
@@ -153,7 +163,7 @@ class MathWordProblemGenerator(EPT):
         # out: [B,D]
         # mwp_enc, mwp_emb, key_value_cache, prefix_len, kw_logits = self._decode_mwp_source(
         #     text_keywords=text_keywords, text_equations=text_equations, text_label=text_label, text_enc=text_enc, **kwargs
-        # ) 
+        # )
 
         # Whether key-value pair is cached or not
         cached = kwargs.get('cached', None)
@@ -410,19 +420,33 @@ class MathWordProblemGenerator(EPT):
         return return_value
 
 
-    def generate_eqn_step204(self, equation: Equation, _text: Encoded = None, _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
+    def generate_eqn_step204(self, mwp: Prediction, equation: Equation, _text: Encoded = None, 
+                             _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
 
+        def gumbel_softmax_mwp(mwp_logits, pad):
+            _softmax = torch.nn.Softmax(dim=-1)
+            comparison = _softmax(mwp_logits)
+            mwp_gumbel = torch.nn.functional.gumbel_softmax(mwp_logits, tau=1, hard=False, eps=1e-10, dim=-1)
+            mwp_embed = torch.matmul(
+                mwp_gumbel, 
+                self.mwpsource_hidden.embeddings.word_embeddings.weight
+            )
+            return Encoded(mwp_embed, pad[:,:mwp_embed.shape[1]])
+        
         if self.training:
+            mwp_gumbel_embed = gumbel_softmax_mwp(mwp.log_prob, _text.pad)
+
             number_len: List[int] = kwargs['number_len']
             eqn_tgt: Equation = equation.treat_variables_as_defined(number_len)
             if _number is None:
                 _num_label: Label = kwargs['_num_label']
                 eqn_tgt: Equation = eqn_tgt.treat_text_as_prev_result(_num_label)
 
-            equation = self._equation_for_train(target=eqn_tgt, text=_text, number=_number, **eqn_kwargs)[-1]
+            
+            equation = self._equation_for_train(target=eqn_tgt, text=mwp_gumbel_embed, number=_number, **eqn_kwargs)[-1]
             return_value['equation'] = equation
             return_value['equation_tgt'] = eqn_tgt
         else:
@@ -446,10 +470,10 @@ class MathWordProblemGenerator(EPT):
         
         # Generate math word problem
         return_value.update(self.generate_mwp_step102(text=text, beam=beam_mwp, **return_value))
-        # if self.training:
-        #     print(f"prediction: {return_value['mwp'][0].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['prediction']}")
-        # else:
-        #     print(f"prediction: {return_value['mwp'][0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target']}")
+        if self.training:
+            print(f"prediction: {return_value['mwp'][0].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['prediction']}")
+        else:
+            print(f"prediction: {return_value['mwp'][0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target']}")
 
         # Separate internal outputs
         external = {}
@@ -479,7 +503,7 @@ class MathWordProblemGenerator(EPT):
         return_value.update(self.predict_varcount_step203(**return_value))
 
         # (2-4) Read/Generate Equation
-        return_value.update(self.generate_eqn_step204(equation=equation, beam=beam, **return_value))
+        return_value.update(self.generate_eqn_step204(mwp=mwp, equation=equation, beam=beam, **return_value))
 
         # Separate internal outputs
         external = {}
