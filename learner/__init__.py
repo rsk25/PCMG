@@ -425,6 +425,7 @@ class SupervisedTrainer(Trainable):
 
     def _update_module(self) -> dict:
         reports = []
+
         for batch in self._dataset.get_minibatches(self._batch_size):
             # ---- Input ----
             # text: Text [B, S]
@@ -438,12 +439,12 @@ class SupervisedTrainer(Trainable):
             
             if self._fp == 16:
                 with torch.cuda.amp.autocast():
-                    out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
+                    out_dict = self._model.forward(self._copy_ratio, iteration=self._iteration, **batch.to(self._model.device).as_dict())
 
                     # Compute loss
                     losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)
             else:
-                out_dict = self._model.forward(self._copy_ratio, **batch.to(self._model.device).as_dict())
+                out_dict = self._model.forward(self._copy_ratio, iteration=self._iteration, **batch.to(self._model.device).as_dict())
 
                 # Compute loss
                 losses = batch.loss_calculation(self._kl_prior, self._kl_coef, **out_dict)

@@ -317,7 +317,7 @@ class MathWordProblemGenerator(EPT):
             enc, _, pred = self._mwp_for_train(selected_kws=selected_kws, text_equations=text.prompt_eq, 
                                                selected_kw_enc=selected_kws_enc, text_label=text.tokens,
                                                target=text.tokens)
-            
+            assert pred.is_batched
             # for b in range(text.shape[0]):
             #     print(pred[b].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode))['prediction'])
             
@@ -422,31 +422,36 @@ class MathWordProblemGenerator(EPT):
 
     def generate_eqn_step204(self, mwp: Prediction, equation: Equation, _text: Encoded = None, 
                              _number: Encoded = None, beam: int = 3, **kwargs) -> dict:
+        assert 'iteration' in kwargs
+
         return_value = {}
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
 
-        def gumbel_softmax_mwp(mwp_logits, pad):
-            _softmax = torch.nn.Softmax(dim=-1)
-            comparison = _softmax(mwp_logits)
-            mwp_gumbel = torch.nn.functional.gumbel_softmax(mwp_logits, tau=1, hard=False, eps=1e-10, dim=-1)
+        def gumbel_softmax_mwp(mwp_logits: Prediction, pad):
+            mwp_gumbel = torch.nn.functional.gumbel_softmax(mwp_logits.log_prob, tau=1, hard=False, eps=1e-10, dim=-1)
             mwp_embed = torch.matmul(
                 mwp_gumbel, 
                 self.mwpsource_hidden.embeddings.word_embeddings.weight
             )
-            return Encoded(mwp_embed, pad[:,:mwp_embed.shape[1]])
+            if mwp_embed.dim() == 3:
+                return Encoded(mwp_embed, pad[:,:mwp_embed.shape[1]])
+            elif mwp_embed.dim() == 4:
+                return Encoded(mwp_embed, pad[:, :, :mwp_embed.shape[2]])
+            else:
+                raise ValueError("mwp_embed dim is too large or to small..")
         
         if self.training:
-            mwp_gumbel_embed = gumbel_softmax_mwp(mwp.log_prob, _text.pad)
+            iteration = kwargs['iteration']
+            embed = gumbel_softmax_mwp(mwp, _text.pad) if iteration >= 1 else _text
 
             number_len: List[int] = kwargs['number_len']
             eqn_tgt: Equation = equation.treat_variables_as_defined(number_len)
             if _number is None:
                 _num_label: Label = kwargs['_num_label']
                 eqn_tgt: Equation = eqn_tgt.treat_text_as_prev_result(_num_label)
-
             
-            equation = self._equation_for_train(target=eqn_tgt, text=mwp_gumbel_embed, number=_number, **eqn_kwargs)[-1]
+            equation = self._equation_for_train(target=eqn_tgt, text=embed, number=_number, **eqn_kwargs)[-1]
             return_value['equation'] = equation
             return_value['equation_tgt'] = eqn_tgt
         else:
@@ -503,7 +508,8 @@ class MathWordProblemGenerator(EPT):
         return_value.update(self.predict_varcount_step203(**return_value))
 
         # (2-4) Read/Generate Equation
-        return_value.update(self.generate_eqn_step204(mwp=mwp, equation=equation, beam=beam, **return_value))
+        return_value.update(self.generate_eqn_step204(mwp=mwp, equation=equation, beam=beam, 
+                                                      iteration=kwargs.get('iteration', None), **return_value))
 
         # Separate internal outputs
         external = {}
