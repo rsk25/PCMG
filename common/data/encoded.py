@@ -13,6 +13,9 @@ class Encoded(TypeTensorBatchable, TypeSelectable):
     def __init__(self, vector: torch.Tensor, pad: Optional[torch.Tensor]):
         super().__init__()
         if pad is None:
+            # if vector.dim() >= 3 :
+            #     pad = torch.zeros(vector.shape[:-1, ...], dtype=torch.bool, device=vector.device)
+            # else:
             pad = torch.zeros(vector.shape[:-1], dtype=torch.bool, device=vector.device)
 
         assert vector.shape[:-1] == pad.shape

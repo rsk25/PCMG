@@ -428,22 +428,17 @@ class MathWordProblemGenerator(EPT):
         eqn_kwargs = {} if _number is not None else {'text_label': kwargs['_label'],
                                                      'num_label': kwargs['_num_label']}
 
-        def gumbel_softmax_mwp(mwp_logits: Prediction, pad):
+        def gumbel_softmax_mwp(mwp_logits: Prediction):
             mwp_gumbel = torch.nn.functional.gumbel_softmax(mwp_logits.log_prob, tau=1, hard=False, eps=1e-10, dim=-1)
             mwp_embed = torch.matmul(
                 mwp_gumbel, 
                 self.mwpsource_hidden.embeddings.word_embeddings.weight
             )
-            if mwp_embed.dim() == 3:
-                return Encoded(mwp_embed, pad[:,:mwp_embed.shape[1]])
-            elif mwp_embed.dim() == 4:
-                return Encoded(mwp_embed, pad[:, :, :mwp_embed.shape[2]])
-            else:
-                raise ValueError("mwp_embed dim is too large or to small..")
+            return Encoded(mwp_embed, pad=None)
         
         if self.training:
             iteration = kwargs['iteration']
-            embed = gumbel_softmax_mwp(mwp, _text.pad) if iteration >= 1 else _text
+            embed = gumbel_softmax_mwp(mwp) if iteration >= 1 else _text
 
             number_len: List[int] = kwargs['number_len']
             eqn_tgt: Equation = equation.treat_variables_as_defined(number_len)
