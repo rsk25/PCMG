@@ -6,6 +6,7 @@ from pycocoevalcap.bleu.bleu import Bleu
 from pycocoevalcap.cider.cider import Cider
 from pycocoevalcap.eval import COCOEvalCap
 from pycocoevalcap.rouge.rouge import Rouge
+from pycocoevalcap.meteor.meteor import Meteor
 from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
 from pycocotools.coco import COCO
 
@@ -75,7 +76,8 @@ class COCOEvalCapModified(COCOEvalCap):
         scorers = [
             (Bleu(4), ["Bleu_4"]),
             (Rouge(), "ROUGE_L"),
-            (BLEURT(), "BLEURT")
+            (BLEURT(), "BLEURT"),
+            (Meteor(), "METEOR")
         ]
         # *** Modification end
 
