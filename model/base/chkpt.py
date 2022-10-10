@@ -2,7 +2,7 @@ from pathlib import Path
 
 import torch
 from torch import nn
-
+from common.const.model import MDL_Q_ENC
 
 class CheckpointingModule(nn.Module):
     def __init__(self, **config):
@@ -18,15 +18,27 @@ class CheckpointingModule(nn.Module):
         state = None
 
         if path is not None and cls.checkpoint_path(path).exists():
+            print("Loading from pretrained.")
             with cls.checkpoint_path(path).open('rb') as fp:
                 load_preset = torch.load(fp)
 
-            config = load_preset['config']
+            new_config = {}
+            new_config[MDL_Q_ENC] = config[MDL_Q_ENC]
+            new_config.update(load_preset['config'])
             state = load_preset['state']
 
-        model = cls(**config)
+            model = cls(**new_config)
+        else:
+            model = cls(**config)
+            
         if state is not None:
-            model.load_state_dict(state)
+            print("State is not None")
+            new_state = state.copy()
+            for key in state.keys():
+                if 'equation' in key:
+                    new_state.pop(key)
+                    new_state[key.replace('equation.','')] = state[key]
+            model.load_state_dict(state, strict=False)
 
         return model
 

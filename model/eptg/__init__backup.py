@@ -100,27 +100,23 @@ class MathWordProblemGenerator(EPT):
         # Concatenate prefix and keyword & equation labels.  [P] + [B, T] + [B, Eq] -> [B, P+T+Eq]
         tmp = keywords.prepend(self._prefix_prompt)
         # Extend target with prefix. [B, D] -> [B, P+T+D]
-        context_input = Label.concat(tmp, equations, dim=1)
-        context_len = context_input.shape[-1]
-        input_ids = Label.concat(prefix, context_input, target, dim=1)
 
-        # flatten_list = [(tmp[i].flatten().indices, 
-        #                  equations[i].flatten().indices, 
-        #                  target[i].flatten().indices) 
-        #                  for i in range(tmp.shape[0])]
+        flatten_list = [(tmp[i].flatten().indices, 
+                         equations[i].flatten().indices, 
+                         target[i].flatten().indices) 
+                         for i in range(tmp.shape[0])]
         
-        # context_len: List[int] = []
-        # input_ids: List[torch.Tensor] = []
-        # for tmp, equation, tgt in flatten_list:
-        #     context_input = torch.cat((tmp, equation))
-        #     context_len.append(context_input.shape[-1])
-        #     input_ids.append(Label(torch.cat((context_input, tgt))))
+        context_len: List[int] = []
+        input_ids: List[torch.Tensor] = []
+        for tmp, equation, tgt in flatten_list:
+            context_input = torch.cat((tmp, equation))
+            context_len.append(context_input.shape[-1])
+            input_ids.append(Label(torch.cat((context_input, tgt))))
         input_ids = Label.build_batch(*[input_id for input_id in input_ids])
         # self._check_with_human_readable(keywords[0])
         # self._check_with_human_readable(tmp[0])
         # self._check_with_human_readable(input_ids[0])
-        return input_ids, context_len
-        # return input_ids, torch.tensor(context_len).unsqueeze_(0)
+        return input_ids, torch.tensor(context_len).unsqueeze_(0)
 
     def build_context(self, embedding: Encoded, text: Encoded = None,
                       prev_key_value: tuple = None) -> Tuple[Encoded, tuple]:
@@ -185,8 +181,7 @@ class MathWordProblemGenerator(EPT):
         #     print(input_ids[b].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target'])
 
         # Build token-type indices. [T] -> [B, T]
-        token_type = torch.arange(input_ids.shape[-1]).ge(context_len).long().unsqueeze(0).to(self.device)
-        # token_type = torch.arange(input_ids.shape[-1]).repeat(input_ids.shape[0],1).ge(context_len.transpose(0,1)).long().to(self.device)
+        token_type = torch.arange(input_ids.shape[-1]).repeat(input_ids.shape[0],1).ge(context_len.transpose(0,1)).long().to(self.device)
 
 
         # As we may add 'text_label' vector and do want to apply it after adding the vector,
@@ -203,30 +198,31 @@ class MathWordProblemGenerator(EPT):
         full_emb = Encoded(embeddings, input_ids.pad)
 
         mwp_enc, key_value_cache = self.build_context(full_emb, selected_kw_enc, cached)
-        prefix_len = 0 if is_cached else context_len
-        # prefix_len = 0 if is_cached else context_len.squeeze(0).tolist()
-        # decoded = Encoded.build_batch(*[Encoded(mwp_enc[b].vector[:prefix_len[b]], pad=None) 
-        #                                 for b in range(mwp_enc.shape[0])])
-        # decoded_embedding = Encoded.build_batch(*[Encoded(mwp_enc[b].vector[:prefix_len[b]], pad=None) 
-        #                                           for b in range(mwp_enc.shape[0])])
+
+        prefix_len = 0 if is_cached else context_len.squeeze(0).tolist()
+        decoded = Encoded.build_batch(*[Encoded(mwp_enc[b].vector[:prefix_len[b]], pad=None) 
+                                        for b in range(mwp_enc.shape[0])])
+        decoded_embedding = Encoded.build_batch(*[Encoded(mwp_enc[b].vector[:prefix_len[b]], pad=None) 
+                                                  for b in range(mwp_enc.shape[0])])
 
         if is_cached:
             # Cached: we need only the last token (encoded has already been cut)
             mwp_emb = mwp_emb[:, -1:]
 
         text_enc = self.mwpsource_hidden.encode(text_label)
+        
 
         if kwargs.get('no_pred', False):
             return mwp_enc, key_value_cache, None
         else:
             predicted, head_cache = \
                 self.mwp_pghead.forward(
-                    text=text_enc, 
-                    text_label=text_label,
-                    decoded=mwp_enc[:, prefix_len:],
-                    # decoded=decoded,
-                    decoder_embedding=mwp_emb[:, prefix_len:],
-                    # decoder_embedding=decoded_embedding,
+                    text=selected_kw_enc, 
+                    text_label=selected_kws,
+                    # decoded=mwp_enc[:, prefix_len:],
+                    decoded=decoded,
+                    # decoder_embedding=mwp_emb[:, prefix_len:],
+                    decoder_embedding=decoded_embedding,
                     prev_key=head_cache,
                     pad_value=self._pad_token
                 )
@@ -487,9 +483,10 @@ class MathWordProblemGenerator(EPT):
         # Generate math word problem
         return_value.update(self.generate_mwp_step102(text=text, beam=beam_mwp, **return_value))
         if self.training:
-            print(return_value['mwp'][0].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode))['prediction'])
+            print(f"prediction: {return_value['mwp'][0].to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['prediction']}")
         else:
-            print(return_value['mwp'][0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target'])
+            print(f"prediction: {return_value['mwp'][0].flatten().to_human_readable(converter=partial(self.mwpsource_hidden.tokenizer.decode, skip_special_tokens=True))['target']}")
+
         # Separate internal outputs
         external = {}
         for key in return_value:

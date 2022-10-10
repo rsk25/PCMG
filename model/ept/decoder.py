@@ -100,7 +100,7 @@ class EquationDecoder(CheckpointingModule):
             return self.config[MDL_Q_HIDDEN]
         elif MDL_Q_ENC in self.config:
             return getattr(self.config[MDL_Q_ENC], 'hidden_size', DEF_Q_HIDDEN)
-
+            
         return DEF_Q_HIDDEN
 
     @property
@@ -174,7 +174,12 @@ class EquationDecoder(CheckpointingModule):
         :rtype: int
         :return: Number of heads in a transformer layer.
         """
-        return getattr(self.config[MDL_Q_ENC], 'num_attention_heads', DEF_Q_HEAD)
+        if MDL_Q_HEAD in self.config:
+            return self.config[MDL_Q_HEAD]
+        elif MDL_Q_ENC in self.config:
+            return getattr(self.config[MDL_Q_ENC], 'num_attention_heads', DEF_Q_HEAD)
+        
+        return DEF_Q_HEAD
 
     def _init_weights(self, module: nn.Module):
         """
