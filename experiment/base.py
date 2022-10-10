@@ -131,8 +131,7 @@ class ExperimentBase(abc.ABC):
                 last_difference = differences[-1]
                 if last_difference > 0:
                     sample_b = tuple([x[b] for x in last_sample])
-                    self._sample_pairs.append(_write_pair(batch.text[b], control_result, sample_b, differences[-1],
-                                                          tokenizer))
+                    self._sample_pairs.append(_write_pair(batch.text[b], control_result, sample_b, differences[-1], tokenizer))
 
                 # Add mean
                 self._group_difference[item_id] = sum(differences) / len(differences)

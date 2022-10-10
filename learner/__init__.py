@@ -307,7 +307,8 @@ class SupervisedTrainer(Trainable):
 
         self._optimizer = cls([params
                                for key, params in self._model.named_parameters()
-                               if ('encoder.model.embeddings' not in key) and ('mwpsource_hidden.embeddings' not in key)],
+                               if ('encoder.model.embeddings' not in key) and ('mwpsource_hidden.embeddings' not in key)\
+                                and ('equation' not in key)],
                               **kwargs)
 
     def _set_scheduler(self, **kwargs):
@@ -406,7 +407,6 @@ class SupervisedTrainer(Trainable):
                         mwp=(
                             tokenizer.decode(item.text.tokens.pad_fill(tokenizer.pad_token_id), skip_special_tokens=True).strip(),
                             tokenizer.decode(output['mwp'][b].pad_fill(tokenizer.pad_token_id), skip_special_tokens=True).strip()
-                            #output['mwp'][b].flatten().to_human_readable(converter=partial(tokenizer.decode, skip_special_tokens=True))['target']
                         )
                     )
 
