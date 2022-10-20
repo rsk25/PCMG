@@ -16,9 +16,10 @@ class Tester(object):
 
 
 class NormalityTester(Tester):
-    def __init__(self, need_plot=True):
+    def __init__(self, need_plot=True, is_small=True):
         super().__init__()
-        self.need_plot = True
+        self.need_plot = need_plot
+        self.is_small = is_small
 
     def is_normal(self, p) -> bool:
         if p < self.p_val:
@@ -26,7 +27,8 @@ class NormalityTester(Tester):
         else:
             return False
 
-    def print_stats(self, stat: float, p: float, normality: bool):
+    def print_stats(self, test_name:str, stat: float, p: float, normality: bool):
+        print(f"{test_name}")
         print(f"statistic: {stat}, p-value: {p}, is_normal: {str(normality)}")
 
     def draw_plot(self):
@@ -36,29 +38,91 @@ class NormalityTester(Tester):
         plt.show()
     
     def print_results(self):
-        ks_stat, ks_p = stats.normaltest(self.data, nan_policy='omit')
-        print("Kolmogorov-Smirnov Test\n")
-        self.print_stats(ks_stat, ks_p, self.is_normal(ks_p))
+        if self.is_small:
+            ks_stat, ks_p = stats.shapiro(self.data, nan_policy='omit')
+            self.print_stats("Shapiro-Wilk Test", ks_stat, ks_p, self.is_normal(ks_p))
+        else:
+            ks_stat, ks_p = stats.normaltest(self.data, nan_policy='omit')
+            self.print_stats("Kolmogorov-Smirnov Test",ks_stat, ks_p, self.is_normal(ks_p))
 
         k_stat, k_p = stats.kstest(self.data, 'norm')
-        print("d'Agostino K-square Test\n")
-        self.print_stats(k_stat, k_p, self.is_normal(k_p))
+        self.print_stats("d'Agostino K-square Test",k_stat, k_p, self.is_normal(k_p))
 
         self.draw_plot()
 
 
 class HypothesisTester(Tester):
-    def __init__(self, h_dir:str, normality=True, is_pair=True):
+    def __init__(self, normality=True, is_pair=True):
         super().__init__()
-        self.h_dir = h_dir
         self.nomality = normality
         self.is_pair = is_pair
     
-    def tost(self, diff=0.05):
-        if self.normality:
-            
+    @staticmethod
+    def opposite(h_dir: str) -> str:
+        if h_dir == 'less':
+            return 'greater'
+        elif h_dir == 'greater':
+            return 'less'
         else:
+            raise ValueError("Hypothesis direction must be either 'less' or 'greater' for one-sided tests!")
+    
+    def tost(self, diff=0.05):
+        assert self.data.shape[0] >= 2
+        h_dir = 'greater'
 
+        # data_0: PCMG
+        # data_1: Comparison
+
+        ### Parametric
+        if self.normality and self.is_pair:
+            # Paired T-test TOST (considering MWP)
+            data_1 = self.data[1] - diff
+            upper_stat, upper_p = stats.ttest_rel(self.data[0], data_1, alternative=h_dir)
+            data_1 = self.data[1] + diff
+            lower_stat, lower_p = stats.ttest_rel(self.data[0], data_1, alternative=self.opposite(h_dir))
+
+        elif self.normality:
+            # T-test TOST (not considering MWP)
+            data_1 = self.data[1] - diff
+            upper_stat, upper_p = stats.ttest_ind(self.data[0], data_1, alternative=h_dir)
+            data_1 = self.data[1] + diff
+            lower_stat, lower_p = stats.ttest_ind(self.data[0], data_1, alternative=self.opposite(h_dir))
+
+        ### Non-parametric
+        elif not self.is_pair:
+            # Wilcoxon signed-rank TOST (considering MWP)
+            d = self.data[0] - (self.data[1] - diff)
+            upper_stat, upper_p = stats.wilcoxon(d, alternative=h_dir)
+            d = self.data[0] - (self.data[1] + diff)
+            lower_stat, lower_p = stats.wilcoxon(d, alternative=self.opposite(h_dir))
+
+        else:
+            # Mann-Whitney U-test TOST (not considering MWP)
+            data_1 = self.data[1] - diff
+            upper_stat, upper_p = stats.mannwhitneyu(self.data[0], data_1, alternative=h_dir)
+            data_1 = self.data[1] + diff
+            lower_stat, lower_p = stats.mannwhitneyu(self.data[0], data_1, alternative=self.opposite(h_dir))
+
+        return upper_stat, upper_p, lower_stat, lower_p
+
+
+    def one_way_test(self):
+        if self.normality and self.is_pair:
+            # Paired T-test (considering MWP)
+            stat, p = stats.ttest_rel()
+        elif self.normality:
+            # T-test (not considering MWP)
+            stat, p = stats.ttest_ind()
+
+        elif not self.is_pair:
+            # Wilcoxon signed-rank (considering MWP)
+            stat, p = stats.wilcoxon()
+
+        else:
+            # Mann-Whitney U-test (not considering MWP)
+            stat, p = stats.mannwhitneyu()
+
+        return stat, p
         
 
 __all__ = ['NormalityTester', 'HypothesisTester']
