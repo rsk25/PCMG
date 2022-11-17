@@ -22,7 +22,7 @@ class NormalityTester(Tester):
 
     def is_normal(self, p) -> bool:
         assert type(p) is float
-        if p < self.p_val:
+        if p > self.p_val:
             return True
         else:
             return False
@@ -67,12 +67,20 @@ class HypothesisTester(Tester):
         self.is_tost = is_tost
 
     def reject_alternative(self, p) -> bool:
-        print(p)
         if p > self.p_val:
             return True
         else:
             return False 
-    
+    @staticmethod
+    def truncate(p: float) -> float:
+        if p < 0.05:
+            return p
+        string = repr(p)
+        integer, decimal = string.split('.')
+        if len(decimal) >= 2: 
+            decimal = decimal[:2]
+        return float(f'{integer}.{decimal}')
+
     @staticmethod
     def opposite(h_dir: str) -> str:
         if h_dir == 'less':
@@ -82,7 +90,7 @@ class HypothesisTester(Tester):
         else:
             raise ValueError("Hypothesis direction must be either 'less' or 'greater' for one-sided tests!")
     
-    def tost(self, diff=0.05, h_dir = 'greater'):
+    def tost(self, diff=0.1, h_dir = 'greater'):
         assert self.data.shape[0] >= 2
 
         test_name = ''
@@ -162,9 +170,11 @@ class HypothesisTester(Tester):
     def print_results(self):
         if self.is_tost:
             test_name, p = self.tost(self.data)
+            p = self.truncate(p)
             self.print_stats_tost(p, self.reject_alternative(p))
         else:
             test_name, stat, p = self.one_way_test()
+            p = self.truncate(p)
             self.print_stats_one_way(stat, p, self.reject_alternative(p))
 
 
