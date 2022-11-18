@@ -21,39 +21,32 @@ class NormalityTester(Tester):
         self.data = data
 
     def is_normal(self, p) -> bool:
-        assert type(p) is float
-        if p > self.p_val:
+        if p < self.p_val:
             return True
         else:
             return False
 
-    def print_stats(self, test_name:str, stat: Tuple[float], p: Tuple[float], normality: Tuple[bool]):
+    def print_stats(self, test_name:str, stat: float, p: float, normality: bool):
         print(f"{test_name}")
-        print(f"Sample1: statistic: {stat[0]}, p-value: {p[0]}, is_normal: {str(normality[0])}")
-        print(f"Sample2: statistic: {stat[1]}, p-value: {p[1]}, is_normal: {str(normality[1])}")
+        print(f"Sample1: statistic: {stat}, p-value: {p}, is_normal: {str(normality)}")
 
     def draw_plot(self):
         '''Draw QQ-plot'''
         plt.figure(figsize=[5,10])
-        plt.add_subplot(nrows=2)
-        stats.probplot(self.data[0], dist=stats.norm, plot=plt)
+        stats.probplot(self.data, dist=stats.norm, plot=plt)
         plt.subplot()
-        stats.probplot(self.data[1], dist=stats.norm, plot=plt)
         plt.show()
     
     def print_results(self):
         if self.is_small:
-            s_stat1, s_p1 = stats.shapiro(self.data[0])
-            s_stat2, s_p2 = stats.shapiro(self.data[1])
-            self.print_stats("Shapiro-Wilk Test", (s_stat1,s_stat2), (s_p1,s_p2), (self.is_normal(s_p1),self.is_normal(s_p2)))
+            s_stat, s_p = stats.shapiro(self.data)
+            self.print_stats("Shapiro-Wilk Test", s_stat, s_p, self.is_normal(s_p))
         else:
-            ks_stat1, ks_p1 = stats.kstest(self.data[0])
-            ks_stat2, ks_p2 = stats.kstest(self.data[1])
-            self.print_stats("Kolmogorov-Smirnov Test", (ks_stat1,ks_stat2), (ks_p1,ks_p2), (self.is_normal(ks_p1),self.is_normal(ks_p2)))
+            ks_stat, ks_p = stats.kstest(self.data, stats.norm.cdf)
+            self.print_stats("Kolmogorov-Smirnov Test", ks_stat, ks_p, self.is_normal(ks_p))
 
-        k_stat1, k_p1 = stats.normaltest(self.data[0])
-        k_stat2, k_p2 = stats.normaltest(self.data[1])
-        self.print_stats("d'Agostino K-square Test",(k_stat1,k_stat2), (k_p1,k_p2), (self.is_normal(k_p1),self.is_normal(k_p2)))
+        k_stat, k_p = stats.normaltest(self.data)
+        self.print_stats("d'Agostino K-square Test", k_stat, k_p, self.is_normal(k_p))
 
         self.draw_plot()
 
@@ -71,15 +64,7 @@ class HypothesisTester(Tester):
             return True
         else:
             return False 
-    @staticmethod
-    def truncate(p: float) -> float:
-        if p < 0.05:
-            return p
-        string = repr(p)
-        integer, decimal = string.split('.')
-        if len(decimal) >= 2: 
-            decimal = decimal[:2]
-        return float(f'{integer}.{decimal}')
+
 
     @staticmethod
     def opposite(h_dir: str) -> str:
@@ -90,7 +75,7 @@ class HypothesisTester(Tester):
         else:
             raise ValueError("Hypothesis direction must be either 'less' or 'greater' for one-sided tests!")
     
-    def tost(self, diff=0.1, h_dir = 'greater'):
+    def tost(self, diff=0.03, h_dir = 'greater'):
         assert self.data.shape[0] >= 2
 
         test_name = ''
@@ -109,10 +94,9 @@ class HypothesisTester(Tester):
         elif self.normality:
             # T-test TOST (not considering MWP)
             test_name = "T-test TOST"
-            print(self.data[1])
-            d = self.data[0] - (self.data[1] - diff)
+            d = self.data[0].astype(float) - (self.data[1].astype(float) - diff)
             upper_stat, upper_p = stats.ttest_1samp(d, -diff, alternative=h_dir)
-            d = self.data[0] - (self.data[1] + diff)
+            d = self.data[0].astype(float) - (self.data[1].astype(float) + diff)
             lower_stat, lower_p = stats.ttest_1samp(d, diff, alternative=self.opposite(h_dir))
 
         ### Non-parametric
