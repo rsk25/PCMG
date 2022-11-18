@@ -103,16 +103,16 @@ class HypothesisTester(Tester):
         elif self.is_pair:
             # Wilcoxon signed-rank TOST (considering MWP)
             test_name = "Wilcoxon signed-rank TOST"
-            upper_stat, upper_p = stats.wilcoxon(self.data[1] - diff, alternative=h_dir)
-            lower_stat, lower_p = stats.wilcoxon(self.data[1] + diff, alternative=self.opposite(h_dir))
+            upper_stat, upper_p = stats.wilcoxon(self.data[1].astype(float) - diff, alternative=h_dir)
+            lower_stat, lower_p = stats.wilcoxon(self.data[1].astype(float) + diff, alternative=self.opposite(h_dir))
 
         else:
             # Mann-Whitney U-test TOST (not considering MWP)
             test_name = "Mann-Whitney U-test TOST"
-            d = self.data[1] - diff
-            upper_stat, upper_p = stats.mannwhitneyu(self.data[0], d, alternative=h_dir)
-            d = self.data[1] + diff
-            lower_stat, lower_p = stats.mannwhitneyu(self.data[0], d, alternative=self.opposite(h_dir))
+            d = self.data[1].astype(float) - diff
+            upper_stat, upper_p = stats.mannwhitneyu(self.data[0].astype(float), d, alternative=h_dir)
+            d = self.data[1].astype(float) + diff
+            lower_stat, lower_p = stats.mannwhitneyu(self.data[0].astype(float), d, alternative=self.opposite(h_dir))
 
         print(test_name)
 
