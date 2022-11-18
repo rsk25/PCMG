@@ -135,7 +135,7 @@ class HypothesisTester(Tester):
 
         print(test_name)
 
-        return test_name, max(upper_p.mean(), lower_p.mean())/2.0
+        return test_name, max(upper_p.mean(), lower_p.mean())
 
 
     def one_way_test(self, h_dir = 'greater'):
