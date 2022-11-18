@@ -13,6 +13,23 @@ class Tester(object):
         return NotImplementedError()
 
 
+class IndependenceTester(Tester):
+    def __init__(self, data: np.ndarray):
+        super().__init__()
+        self.data = data
+    
+    def is_independent(self, p) -> bool:
+        if p >= self.p_val:
+            # Correlation is zero
+            return True
+        else:
+            return False
+    
+    def print_results(self):
+        stat, p = stats.pearsonr(self.data[0], self.data[1])
+        print(f"Statistic: {stat}, p-value: {p}, Independent?: {self.is_independent(p)}")
+
+
 class NormalityTester(Tester):
     def __init__(self, data: np.ndarray, need_plot=True, is_small=True):
         super().__init__()
@@ -75,7 +92,7 @@ class HypothesisTester(Tester):
         else:
             raise ValueError("Hypothesis direction must be either 'less' or 'greater' for one-sided tests!")
     
-    def tost(self, diff=0.03, h_dir = 'greater'):
+    def tost(self, diff=0.02, h_dir = 'greater'):
         assert self.data.shape[0] >= 2
 
         test_name = ''
@@ -103,8 +120,10 @@ class HypothesisTester(Tester):
         elif self.is_pair:
             # Wilcoxon signed-rank TOST (considering MWP)
             test_name = "Wilcoxon signed-rank TOST"
-            upper_stat, upper_p = stats.wilcoxon(self.data[1].astype(float) - diff, alternative=h_dir)
-            lower_stat, lower_p = stats.wilcoxon(self.data[1].astype(float) + diff, alternative=self.opposite(h_dir))
+            res = stats.wilcoxon(self.data[0].astype(float), self.data[1].astype(float) - diff, alternative=h_dir, zero_method="zsplit", axis=0)
+            upper_stat, upper_p = res.statistic, res.pvalue
+            res = stats.wilcoxon(self.data[0].astype(float), self.data[1].astype(float) + diff, alternative=self.opposite(h_dir), zero_method="zsplit", axis=0)
+            lower_stat, lower_p = res.statistic, res.pvalue
 
         else:
             # Mann-Whitney U-test TOST (not considering MWP)
@@ -116,29 +135,30 @@ class HypothesisTester(Tester):
 
         print(test_name)
 
-        return test_name, max(upper_p.mean(), lower_p.mean())/2.
+        return test_name, max(upper_p.mean(), lower_p.mean())/2.0
 
 
     def one_way_test(self, h_dir = 'greater'):
         if self.normality and self.is_pair:
             # Paired T-test (considering MWP)
             test_name = "Paired T-test"
-            stat, p = stats.ttest_rel(self.data[0], self.data[1], alternative=h_dir)
+            stat, p = stats.ttest_rel(self.data[0].astype(float), self.data[1].astype(float), alternative=h_dir)
         elif self.normality:
             # T-test (not considering MWP)
             test_name = "T-test"
-            stat, p = stats.ttest_ind(self.data[0], self.data[1], alternative=h_dir)
+            stat, p = stats.ttest_ind(self.data[0].astype(float), self.data[1].astype(float), alternative=h_dir)
 
         elif self.is_pair:
             # Wilcoxon signed-rank (considering MWP)
             test_name = "Wilcoxon signed-rank"
-            d = self.data[0] - self.data[1]
-            stat, p = stats.wilcoxon(d, alternative=h_dir)
-
+            d = self.data[0].astype(float) - self.data[1].astype(float)
+            print(d)
+            res = stats.wilcoxon(d, alternative=h_dir, zero_method="zsplit", axis=0)
+            stat, p = res.statistic, res.pvalue
         else:
             # Mann-Whitney U-test (not considering MWP)
             test_name = "Mann-Whitney U-test"
-            stat, p = stats.mannwhitneyu(self.data[0], self.data[1], alternative=h_dir)
+            stat, p = stats.mannwhitneyu(self.data[0].astype(float), self.data[1].astype(float), alternative=h_dir)
             
         print(test_name)
         return test_name, stat, p
@@ -160,4 +180,4 @@ class HypothesisTester(Tester):
             self.print_stats_one_way(stat, p, self.reject_alternative(p))
 
 
-__all__ = ['Tester','NormalityTester', 'HypothesisTester']
+__all__ = ['Tester','NormalityTester', 'HypothesisTester', 'IndependenceTester']
