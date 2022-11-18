@@ -154,11 +154,9 @@ class HypothesisTester(Tester):
     def print_results(self):
         if self.is_tost:
             test_name, p = self.tost(self.data)
-            p = self.truncate(p)
             self.print_stats_tost(p, self.reject_alternative(p))
         else:
             test_name, stat, p = self.one_way_test()
-            p = self.truncate(p)
             self.print_stats_one_way(stat, p, self.reject_alternative(p))
 
 
