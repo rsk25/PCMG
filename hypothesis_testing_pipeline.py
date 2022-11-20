@@ -12,6 +12,22 @@ class Tester(object):
     def print_results(self):
         return NotImplementedError()
 
+class SkewTester(Tester):
+    def __init__(self, data: np.ndarray):
+        super().__init__()
+        self.data = data
+        assert self.data.shape[0] == 1, 'Array is not 1D!1'
+    
+    def is_skewed(self, p) -> bool:
+        if p < self.p_val:
+            return True
+        else:
+            return False
+
+    def print_results(self):
+        stat, p = stats.skewtest(self.data[0], nan_policy='omit')
+        print(f"Statistic: {stat}, p-value: {p}, Skewed?: {self.is_skewed(p)}")
+
 
 class IndependenceTester(Tester):
     def __init__(self, data: np.ndarray):
@@ -180,4 +196,4 @@ class HypothesisTester(Tester):
             self.print_stats_one_way(stat, p, self.reject_alternative(p))
 
 
-__all__ = ['Tester','NormalityTester', 'HypothesisTester', 'IndependenceTester']
+__all__ = ['Tester','NormalityTester', 'HypothesisTester', 'IndependenceTester', 'SkewTester']
