@@ -43,7 +43,7 @@ class IndependenceTester(Tester):
     
     def print_results(self):
         stat, p = stats.pearsonr(self.data[0], self.data[1])
-        print(f"Statistic: {stat}, p-value: {p}, Independent?: {self.is_independent(p)}")
+        print(f"Pearson's r: {stat}, Independent?: {self.is_independent(p)}")
 
 
 class NormalityTester(Tester):
